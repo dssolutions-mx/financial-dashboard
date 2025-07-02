@@ -1,0 +1,167 @@
+Total unique classifications: 18
+
+Classifications array:
+[
+  {
+    "codigo_ingresos": "4100-1000-001-000",
+    "categoria_ingresos": "Ventas Concreto",
+    "concepto_ingresos": "Concreto Sil P1",
+    "concepto_gerencia": "Ventas Concreto",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Ventas",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
+  },
+  {
+    "codigo_ingresos": "4100-2000-001-000",
+    "categoria_ingresos": "Ventas Concreto",
+    "concepto_ingresos": "Concreto TI P-2",
+    "concepto_gerencia": "Ventas Concreto",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Ventas",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
+  },
+  {
+    "codigo_ingresos": "4100-3000-001-000",
+    "categoria_ingresos": "Ventas Concreto",
+    "concepto_ingresos": "Concreto TI P3",
+    "concepto_gerencia": "Ventas Concreto",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Ventas",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
+  },
+  {
+    "codigo_ingresos": "4100-5000-001-000",
+    "categoria_ingresos": "Ventas Concreto",
+    "concepto_ingresos": "Concreto TI P-4",
+    "concepto_gerencia": "Ventas Concreto",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Ventas",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
+  },
+  {
+    "codigo_ingresos": "4100-1000-004-000",
+    "categoria_ingresos": "Ventas Bombeo",
+    "concepto_ingresos": "Bombeo Sil P1",
+    "concepto_gerencia": "Ventas Bombeo",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Ventas Bombeo",
+    "sub_sub_clasificacion_gerencia": "Ventas Bombeo"
+  },
+  {
+    "codigo_ingresos": "4100-2000-002-000",
+    "categoria_ingresos": "Ventas Bombeo",
+    "concepto_ingresos": "Bombeo TI P-2",
+    "concepto_gerencia": "Ventas Bombeo",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Ventas Bombeo",
+    "sub_sub_clasificacion_gerencia": "Ventas Bombeo"
+  },
+  {
+    "codigo_ingresos": "4100-3000-002-000",
+    "categoria_ingresos": "Ventas Bombeo",
+    "concepto_ingresos": "Bombeo TI P3",
+    "concepto_gerencia": "Ventas Bombeo",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Ventas Bombeo",
+    "sub_sub_clasificacion_gerencia": "Ventas Bombeo"
+  },
+  {
+    "codigo_ingresos": "4100-9000-000-000",
+    "categoria_ingresos": "Otros Ingresos",
+    "concepto_ingresos": "Otros Ingresos",
+    "concepto_gerencia": "Otros Ingresos",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Otros",
+    "sub_sub_clasificacion_gerencia": "Otros"
+  },
+  {
+    "codigo_ingresos": "4100-1000-007-000",
+    "categoria_ingresos": "Otros Ingresos",
+    "concepto_ingresos": "Otros Ingresos P1",
+    "concepto_gerencia": "Otros Ingresos",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Otros",
+    "sub_sub_clasificacion_gerencia": "Otros"
+  },
+  {
+    "codigo_ingresos": "5000-1001-001-001",
+    "categoria_ingresos": "Cemento",
+    "concepto_ingresos": "Cemento Costo Vtas P1",
+    "concepto_gerencia": "Cemento",
+    "clasificacion_gerencia": "Egresos",
+    "sub_clasificacion_gerencia": "Costo Materias Primas",
+    "sub_sub_clasificacion_gerencia": "Materia prima"
+  },
+  {
+    "codigo_ingresos": "5000-1002-001-001",
+    "categoria_ingresos": "Cemento",
+    "concepto_ingresos": "Cemento Costo Vtas P2",
+    "concepto_gerencia": "Cemento",
+    "clasificacion_gerencia": "Egresos",
+    "sub_clasificacion_gerencia": "Costo Materias Primas",
+    "sub_sub_clasificacion_gerencia": "Materia prima"
+  },
+  {
+    "codigo_ingresos": "5000-1003-001-001",
+    "categoria_ingresos": "Cemento",
+    "concepto_ingresos": "Cemento Costo Vtas P3",
+    "concepto_gerencia": "Cemento",
+    "clasificacion_gerencia": "Egresos",
+    "sub_clasificacion_gerencia": "Costo Materias Primas",
+    "sub_sub_clasificacion_gerencia": "Materia prima"
+  },
+  {
+    "codigo_ingresos": "5000-1000-002-003",
+    "categoria_ingresos": "Cemento",
+    "concepto_ingresos": "Cemento Costo Vtas P4",
+    "concepto_gerencia": "Cemento",
+    "clasificacion_gerencia": "Egresos",
+    "sub_clasificacion_gerencia": "Costo Materias Primas",
+    "sub_sub_clasificacion_gerencia": "Materia prima"
+  },
+  {
+    "codigo_ingresos": "5000-1004-100-000",
+    "categoria_ingresos": "Nómina Producción",
+    "concepto_ingresos": "Sueldos Costo Concreto Sil P1",
+    "concepto_gerencia": "Nómina Producción",
+    "clasificacion_gerencia": "Egresos",
+    "sub_clasificacion_gerencia": "Costo operativo",
+    "sub_sub_clasificacion_gerencia": "Costo Fijo"
+  },
+  {
+    "codigo_ingresos": "5000-1005-100-000",
+    "categoria_ingresos": "Nómina Producción",
+    "concepto_ingresos": "Sueldos Costo Concreto TI P2",
+    "concepto_gerencia": "Nómina Producción",
+    "clasificacion_gerencia": "Egresos",
+    "sub_clasificacion_gerencia": "Costo operativo",
+    "sub_sub_clasificacion_gerencia": "Costo Fijo"
+  },
+  {
+    "codigo_ingresos": "5000-1006-100-000",
+    "categoria_ingresos": "Nómina Producción",
+    "concepto_ingresos": "Sueldos Costo Concreto TI P3",
+    "concepto_gerencia": "Nómina Producción",
+    "clasificacion_gerencia": "Egresos",
+    "sub_clasificacion_gerencia": "Costo operativo",
+    "sub_sub_clasificacion_gerencia": "Costo Fijo"
+  },
+  {
+    "codigo_ingresos": "5000-1007-100-000",
+    "categoria_ingresos": "Nómina Producción",
+    "concepto_ingresos": "Sueldos Costo Concreto TI P4",
+    "concepto_gerencia": "Nómina Producción",
+    "clasificacion_gerencia": "Egresos",
+    "sub_clasificacion_gerencia": "Costo operativo",
+    "sub_sub_clasificacion_gerencia": "Costo Fijo"
+  },
+  {
+    "codigo_ingresos": "5000-1001-001-007",
+    "categoria_ingresos": "Diesel CR",
+    "concepto_ingresos": "Diesel Costo Vtas P1",
+    "concepto_gerencia": "Diesel CR",
+    "clasificacion_gerencia": "Egresos",
+    "sub_clasificacion_gerencia": "Costo operativo",
+    "sub_sub_clasificacion_gerencia": "Costo transporte concreto"
+  }
+]
