@@ -309,6 +309,19 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
     setIsDebugModalOpen(true)
   }
 
+  const handleReturnToValidation = () => {
+    // Close debug modal and reopen validation modal with updated data
+    setIsDebugModalOpen(false)
+    
+    // Recalculate validation summary with current data
+    if (currentRawData.length > 0) {
+      const validation = validationEngine.validateData(data, currentRawData)
+      setValidationSummary(validation)
+    }
+    
+    setIsValidationModalOpen(true)
+  }
+
   const handleSelectReport = async (report: FinancialReport) => {
     try {
       setIsProcessing(true)
@@ -404,8 +417,10 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
        : filteredByUnit.filter((row) => row["Categoria 1"] === selectedCategory);
 
    const ingresos = finalFilteredData.filter((row) => row.Tipo === "Ingresos").reduce((sum, row) => sum + row.Monto, 0)
-   const egresos = finalFilteredData.filter((row) => row.Tipo === "Egresos").reduce((sum, row) => sum + row.Monto, 0)
-   const utilidadBruta = ingresos + egresos
+   const egresosPositive = finalFilteredData.filter((row) => row.Tipo === "Egresos").reduce((sum, row) => sum + row.Monto, 0)
+   // Store egresos as negative for proper display and calculation
+   const egresos = -Math.abs(egresosPositive)
+   const utilidadBruta = ingresos + egresos // Now works correctly: ingresos + (-egresos) = ingresos - egresos
    const porcentajeUtilidad = ingresos !== 0 ? (utilidadBruta / ingresos) * 100 : 0
 
    setSummaryData({
@@ -436,7 +451,8 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
      const clasificacion = row.Clasificacion || "Sin Clasificación"
      const categoria1 = row["Categoria 1"] || "Sin Categoría"
      const planta = row.Planta
-     const monto = row.Monto
+     // Convert egresos to negative for consistent display throughout the table
+     const monto = tipo === "Egresos" ? -Math.abs(row.Monto) : row.Monto
      const validPlanta = ALL_PLANTS.includes(planta) ? planta : "SIN CLASIFICACION"
 
       if (!hierarchy[tipo]) {
@@ -1068,6 +1084,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
           data={data}
           onDataChange={handleSaveChanges}
           validationSummary={validationSummary}
+          onReturnToValidation={handleReturnToValidation}
         />
 
         <ValidationModal

@@ -1639,15 +1639,14 @@ function processBalanzaData(data: BalanzaRow[]): DebugDataRow[] {
       subCategoria = classification.sub_clasificacion_gerencia || 'Sin Subcategoría';
       clasificacion = classification.sub_sub_clasificacion_gerencia || 'Sin Clasificación';
 
-      // Determine Monto: Ingresos use Abonos, Egresos use Cargos
+      // Determine Monto using consistent logic for all account types
       if (tipo === 'Ingresos') {
-        monto = abonos; // Ingresos typically increase with Abonos
+        monto = abonos - cargos; // Net income: Abonos minus any returns/adjustments in Cargos
       } else if (tipo === 'Egresos') {
-        monto = cargos * -1; // Egresos typically increase with Cargos, represent as negative
+        monto = cargos - abonos; // Net expense: Cargos minus any refunds/adjustments in Abonos
       } else {
         // Handle cases where tipo might be different or undefined
-        // Maybe default to difference or log an error?
-         monto = abonos - cargos; // Or some default logic
+        monto = abonos - cargos; // Default logic for undefined types
       }
 
     } else {

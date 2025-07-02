@@ -55,6 +55,7 @@ interface EnhancedDebugModalProps {
   data: DebugDataRow[]
   onDataChange: (newData: DebugDataRow[]) => void
   validationSummary?: ValidationSummary | null
+  onReturnToValidation?: () => void
 }
 
 // Cache keys for localStorage
@@ -301,7 +302,8 @@ export default function EnhancedDebugModal({
   onClose, 
   data, 
   onDataChange,
-  validationSummary 
+  validationSummary,
+  onReturnToValidation
 }: EnhancedDebugModalProps) {
   
   // State management
@@ -742,7 +744,15 @@ export default function EnhancedDebugModal({
           <div className="text-sm text-gray-600">
             Mostrando {processedData.length} de {data.length} registros
           </div>
-          <Button onClick={onClose}>Cerrar</Button>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={onClose}>Cerrar</Button>
+            {onReturnToValidation && (
+              <Button onClick={onReturnToValidation}>
+                <Save className="h-4 w-4 mr-2" />
+                Volver a Validación
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
