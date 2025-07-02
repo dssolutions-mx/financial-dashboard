@@ -2,11 +2,15 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
-import { ChevronDown, ChevronRight, Upload, Eye, Download, Calculator } from "lucide-react"
+import { ChevronDown, ChevronRight, Upload, Eye, Download, Calculator, Database } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { handleBalanzaFileUpload, type DebugDataRow } from "@/lib/excel-processor"
-import DebugModal from "./debug-modal"
+import { validationEngine, ValidationSummary, ReportMetadata } from "@/lib/validation-engine"
+import { SupabaseStorageService, FinancialReport } from "@/lib/supabase-storage"
+import EnhancedDebugModal from "./enhanced-debug-modal"
+import ValidationModal from "./validation-modal"
+import ReportSelector from "./report-selector"
 import { useToast } from "@/hooks/use-toast"
 
 interface FinancialDashboardProps {
@@ -42,6 +46,17 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
   const [isProcessing, setIsProcessing] = useState(false)
   const [isDebugModalOpen, setIsDebugModalOpen] = useState(false)
   const [showUnitPriceView, setShowUnitPriceView] = useState(false)
+  
+  // Validation and persistence state
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false)
+  const [validationSummary, setValidationSummary] = useState<ValidationSummary | null>(null)
+  const [currentFileName, setCurrentFileName] = useState("")
+  const [currentProcessedData, setCurrentProcessedData] = useState<DebugDataRow[]>([])
+  const [currentRawData, setCurrentRawData] = useState<any[]>([])
+  const [showReportSelector, setShowReportSelector] = useState(false)
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
+  const [storageService] = useState(() => new SupabaseStorageService())
+  
   const { toast } = useToast()
 
   // Update local data when initialData changes
@@ -196,18 +211,28 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
     try {
       setIsProcessing(true)
-      const processedData = await handleBalanzaFileUpload(event)
-      setData(processedData)
-      onDataUpdate(processedData)
-      setSelectedUnits(["ALL"])
-      setSelectedCategory("ALL")
-      setExpandedRows(new Set(["Ingresos", "Egresos"]))
-
+      
+      // Use validation engine to process Excel with validation
+      const { processedData, rawData, validation } = await validationEngine.processExcelWithValidation(file)
+      
+      // Store the results for validation review
+      setCurrentProcessedData(processedData)
+      setCurrentRawData(rawData)
+      setCurrentFileName(file.name)
+      setValidationSummary(validation)
+      
+      // Show validation modal for review
+      setIsValidationModalOpen(true)
+      
       toast({
         title: "Archivo procesado",
-        description: "Los datos han sido cargados exitosamente.",
+        description: "Revise los resultados de validación antes de guardar.",
+        variant: validation.isValid ? "default" : "destructive",
       })
     } catch (error) {
       console.error("Error processing file:", error)
@@ -233,13 +258,106 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
     (updatedData: DebugDataRow[]) => {
       setData(updatedData)
       onDataUpdate(updatedData)
+      
+      // Recalculate validation summary when data changes
+      if (currentRawData.length > 0) {
+        const validation = validationEngine.validateData(updatedData, currentRawData)
+        setValidationSummary(validation)
+      }
+      
       toast({
         title: "Datos actualizados",
         description: "Los cambios han sido guardados exitosamente.",
       })
     },
-    [onDataUpdate, toast],
+    [onDataUpdate, toast, currentRawData],
   )
+
+  // Validation workflow handlers
+  const handleApproveData = async (metadata: ReportMetadata) => {
+    try {
+      const report = await storageService.saveFinancialData(
+        metadata.name,
+        metadata.fileName,
+        metadata.month,
+        metadata.year,
+        currentProcessedData
+      )
+      
+      // Set the data in the dashboard
+      setData(currentProcessedData)
+      onDataUpdate(currentProcessedData)
+      setSelectedUnits(["ALL"])
+      setSelectedCategory("ALL")
+      setExpandedRows(new Set(["Ingresos", "Egresos"]))
+      setSelectedReportId(report.id)
+      
+      toast({
+        title: "Datos guardados",
+        description: `Reporte "${metadata.name}" guardado exitosamente.`,
+      })
+    } catch (error) {
+      console.error("Error saving data:", error)
+      throw error
+    }
+  }
+
+  const handleViewUnclassified = () => {
+    setIsValidationModalOpen(false)
+    setData(currentProcessedData)
+    onDataUpdate(currentProcessedData)
+    setIsDebugModalOpen(true)
+  }
+
+  const handleSelectReport = async (report: FinancialReport) => {
+    try {
+      setIsProcessing(true)
+      const reportData = await storageService.getFinancialData(report.id)
+      
+      // Convert FinancialDataRow to DebugDataRow format
+      const convertedData: DebugDataRow[] = reportData.map(row => ({
+        Codigo: row.codigo,
+        Concepto: row.concepto,
+        Abonos: row.abonos,
+        Cargos: row.cargos,
+        Tipo: row.tipo,
+        'Categoria 1': row.categoria_1,
+        'Sub categoria': row.sub_categoria,
+        Clasificacion: row.clasificacion,
+        Monto: row.monto,
+        Planta: row.planta,
+      }))
+      
+      setData(convertedData)
+      onDataUpdate(convertedData)
+      setSelectedReportId(report.id)
+      setSelectedUnits(["ALL"])
+      setSelectedCategory("ALL")
+      setExpandedRows(new Set(["Ingresos", "Egresos"]))
+      
+      toast({
+        title: "Reporte cargado",
+        description: `Datos de "${report.name}" cargados exitosamente.`,
+      })
+    } catch (error) {
+      console.error("Error loading report:", error)
+      toast({
+        title: "Error",
+        description: "Error al cargar el reporte.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleDeleteReport = async (reportId: string) => {
+    // Implementation for deleting reports (optional for Stage 1)
+    toast({
+      title: "Función no disponible",
+      description: "La eliminación de reportes estará disponible en la siguiente versión.",
+    })
+  }
 
   const exportToJson = () => {
     const dataStr = JSON.stringify(data, null, 2)
@@ -450,7 +568,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
           </div>
            {/* Unit Price View Toggle */}
           <Button
-            variant={showUnitPriceView ? "default" : "outline-solid"}
+                          variant={showUnitPriceView ? "default" : "outline"}
             size="sm"
             onClick={() => setShowUnitPriceView(!showUnitPriceView)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${
@@ -503,6 +621,15 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
               <Download size={14} /> 
               Exportar
             </Button>
+            <Button
+              variant="outline"
+              size="sm" 
+              onClick={() => setShowReportSelector(!showReportSelector)}
+               className="flex items-center gap-2 px-3 py-1.5 rounded-lg border-gray-300 hover:bg-gray-100 text-sm"
+            >
+              <Database size={14} /> 
+              {showReportSelector ? "Ocultar Reportes" : "Ver Reportes"}
+            </Button>
           </div>
         </div>
       </div>
@@ -542,7 +669,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
         </Card>
          <Card className="p-3 bg-white shadow-xs hover:shadow-md transition-shadow border border-gray-200">
           <h3 className="text-xs text-gray-600">EGRESOS</h3>
-           <p className="text-lg font-bold text-gray-800">{formatMoney(Math.abs(summaryData.egresos), true)}</p>
+           <p className="text-lg font-bold text-gray-800">{formatMoney(summaryData.egresos, true)}</p>
         </Card>
          <Card className="p-3 bg-white shadow-xs hover:shadow-md transition-shadow border border-gray-200">
           <h3 className="text-xs text-gray-600">UTILIDAD BRUTA</h3>
@@ -553,6 +680,17 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
            <p className="text-lg font-bold text-gray-800">{summaryData.porcentajeUtilidad.toFixed(2)}%</p>
         </Card>
       </div>
+
+      {/* Report Selector */}
+      {showReportSelector && (
+        <div className="mb-6">
+          <ReportSelector
+            onSelectReport={handleSelectReport}
+            onDeleteReport={handleDeleteReport}
+            selectedReportId={selectedReportId || undefined}
+          />
+        </div>
+      )}
 
        {/* Data Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-x-auto w-full">
@@ -923,13 +1061,23 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
             </div>
         )}
 
-        <DebugModal
-            isOpen={isDebugModalOpen}
-            onClose={() => setIsDebugModalOpen(false)}
-            data={data}
-            onUpdateData={handleDataUpdate}
-            onSaveChanges={handleSaveChanges}
-         />
+                <EnhancedDebugModal
+          key={`debug-modal-${data.length}-${Date.now()}`}
+          isOpen={isDebugModalOpen}
+          onClose={() => setIsDebugModalOpen(false)}
+          data={data}
+          onDataChange={handleSaveChanges}
+          validationSummary={validationSummary}
+        />
+
+        <ValidationModal
+            isOpen={isValidationModalOpen}
+            onClose={() => setIsValidationModalOpen(false)}
+            validationSummary={validationSummary}
+            fileName={currentFileName}
+            onApprove={handleApproveData}
+            onViewUnclassified={handleViewUnclassified}
+        />
     </div>
 );
 

@@ -1,30 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import FinancialDashboard from "@/components/financial-dashboard"
 import type { DebugDataRow } from "@/lib/excel-processor"
 import { Toaster } from "@/components/ui/toaster"
 
 export default function Home() {
+  // Initialize with empty data - the dashboard will manage its own data through Supabase
   const [data, setData] = useState<DebugDataRow[]>([])
-
-  useEffect(() => {
-    // Try to load data from localStorage on initial render
-    const savedData = localStorage.getItem("financialData")
-    if (savedData) {
-      try {
-        setData(JSON.parse(savedData))
-      } catch (error) {
-        console.error("Error parsing saved data:", error)
-        // Load default empty data if parsing fails
-        setData([])
-      }
-    }
-  }, [])
 
   const handleDataUpdate = (updatedData: DebugDataRow[]) => {
     setData(updatedData)
-    // Save to localStorage for persistence
+    // Optional: Keep localStorage as backup/cache
     localStorage.setItem("financialData", JSON.stringify(updatedData))
   }
 
