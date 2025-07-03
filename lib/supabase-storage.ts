@@ -213,6 +213,100 @@ export class SupabaseStorageService {
     if (error) throw error
   }
 
+  // Delete financial report and all associated data with proper cascade handling
+  async deleteReport(reportId: string): Promise<void> {
+    try {
+      // Start a transaction-like approach by checking dependencies first
+      console.log(`Starting cascade deletion for report: ${reportId}`)
+      
+      // First, verify the report exists
+      const { data: reportExists, error: checkError } = await this.supabase
+        .from('financial_reports')
+        .select('id, name')
+        .eq('id', reportId)
+        .single()
+
+      if (checkError) {
+        console.error('Error checking report existence:', checkError)
+        throw new Error(`Report with ID ${reportId} not found or inaccessible`)
+      }
+
+      if (!reportExists) {
+        throw new Error(`Report with ID ${reportId} does not exist`)
+      }
+
+      console.log(`Report found: ${reportExists.name}, proceeding with cascade deletion`)
+
+      // Get count of related financial data before deletion
+      const { count: dataCount, error: countError } = await this.supabase
+        .from('financial_data')
+        .select('*', { count: 'exact', head: true })
+        .eq('report_id', reportId)
+
+      if (countError) {
+        console.error('Error counting related financial data:', countError)
+        throw countError
+      }
+
+      console.log(`Found ${dataCount || 0} financial data records to delete`)
+
+      // Step 1: Delete all financial data associated with this report (child records first)
+      const { error: dataError, count: deletedDataCount } = await this.supabase
+        .from('financial_data')
+        .delete({ count: 'exact' })
+        .eq('report_id', reportId)
+
+      if (dataError) {
+        console.error('Error deleting financial data:', dataError)
+        throw new Error(`Failed to delete financial data: ${dataError.message}`)
+      }
+
+      console.log(`Successfully deleted ${deletedDataCount || 0} financial data records`)
+
+      // Step 2: Delete the financial report itself (parent record)
+      const { error: reportError, count: deletedReportCount } = await this.supabase
+        .from('financial_reports')
+        .delete({ count: 'exact' })
+        .eq('id', reportId)
+
+      if (reportError) {
+        console.error('Error deleting financial report:', reportError)
+        throw new Error(`Failed to delete financial report: ${reportError.message}`)
+      }
+
+      if (deletedReportCount === 0) {
+        throw new Error('No report was deleted - report may have been deleted by another process')
+      }
+
+      console.log(`Successfully completed cascade deletion for report: ${reportExists.name}`)
+      console.log(`Total records deleted: ${(deletedDataCount || 0)} data records + 1 report`)
+
+      // Final verification: ensure no orphaned data remains
+      const { count: remainingDataCount, error: verifyError } = await this.supabase
+        .from('financial_data')
+        .select('*', { count: 'exact', head: true })
+        .eq('report_id', reportId)
+
+      if (verifyError) {
+        console.warn('Could not verify cleanup completion:', verifyError)
+      } else if (remainingDataCount && remainingDataCount > 0) {
+        console.error(`WARNING: ${remainingDataCount} orphaned financial_data records remain for deleted report ${reportId}`)
+        // Note: We don't throw here as the main deletion succeeded, but we log the issue
+      } else {
+        console.log('Verification passed: No orphaned data remains')
+      }
+
+    } catch (error) {
+      console.error('Error in cascade deletion:', error)
+      // Re-throw with more context
+      if (error instanceof Error) {
+        throw new Error(`Cascade deletion failed: ${error.message}`)
+      } else {
+        throw new Error('Cascade deletion failed due to unknown error')
+      }
+    }
+  }
+
   // Get summary data for dashboard
   async getDashboardSummary(month?: number, year?: number) {
     let query = this.supabase

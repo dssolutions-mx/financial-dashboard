@@ -55,7 +55,7 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
   const [currentRawData, setCurrentRawData] = useState<any[]>([])
   const [showReportSelector, setShowReportSelector] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
-  const [storageService] = useState(() => new SupabaseStorageService())
+  const storageService = useMemo(() => new SupabaseStorageService(), [])
   
   const { toast } = useToast()
 
@@ -365,11 +365,57 @@ const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, on
   }
 
   const handleDeleteReport = async (reportId: string) => {
-    // Implementation for deleting reports (optional for Stage 1)
-    toast({
-      title: "Función no disponible",
-      description: "La eliminación de reportes estará disponible en la siguiente versión.",
-    })
+    try {
+      setIsProcessing(true)
+      
+      // Show initial feedback
+      toast({
+        title: "Eliminando reporte",
+        description: "Eliminando el reporte y todos los datos asociados...",
+      })
+      
+      // Create a fresh instance to ensure we have the latest methods
+      const freshStorageService = new SupabaseStorageService()
+      await freshStorageService.deleteReport(reportId)
+      
+      // If the deleted report was the currently selected one, clear the selection
+      if (selectedReportId === reportId) {
+        setSelectedReportId(null)
+        // Clear the data and reset to initial state
+        setData([])
+        onDataUpdate([])
+        
+        // Reset filters and expanded state
+        setSelectedUnits(["ALL"])
+        setSelectedCategory("ALL")
+        setExpandedRows(new Set(["Ingresos", "Egresos"]))
+        setMatrixData({})
+        setSummaryData({
+          ingresos: 0,
+          egresos: 0,
+          utilidadBruta: 0,
+          porcentajeUtilidad: 0,
+        })
+      }
+      
+      toast({
+        title: "Reporte eliminado exitosamente",
+        description: "El reporte y todos sus datos han sido eliminados mediante eliminación en cascada.",
+      })
+    } catch (error) {
+      console.error("Error deleting report:", error)
+      
+      // More detailed error messaging
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido"
+      
+      toast({
+        title: "Error en eliminación en cascada",
+        description: `No se pudo eliminar el reporte: ${errorMessage}`,
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const exportToJson = () => {
