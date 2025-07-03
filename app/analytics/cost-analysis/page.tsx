@@ -153,9 +153,11 @@ export default function CostAnalysisPage() {
         allData.push({ report, data: reportData })
       }
 
-      // Calculate cost analysis from latest report
-      const latestReportData = allData[0]
-      await calculateCostAnalysis(latestReportData.data, allData)
+      // Aggregate data from all reports in the selected timeframe
+      const aggregatedData = aggregateReportsData(allData)
+
+      // Calculate cost analysis from aggregated data
+      await calculateCostAnalysis(aggregatedData, allData)
 
     } catch (error) {
       console.error("Error loading cost analysis:", error)
@@ -167,6 +169,28 @@ export default function CostAnalysisPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // New function to aggregate data from multiple reports
+  const aggregateReportsData = (allData: any[]) => {
+    const aggregated: Record<string, any> = {}
+    
+    allData.forEach(({ data }) => {
+      data.forEach((row: any) => {
+        const key = `${row.tipo}-${row.planta}-${row.categoria_1}-${row.categoria_2}-${row.categoria_3}-${row.cuenta}`
+        
+        if (aggregated[key]) {
+          aggregated[key].monto += (row.monto || 0)
+        } else {
+          aggregated[key] = {
+            ...row,
+            monto: row.monto || 0
+          }
+        }
+      })
+    })
+    
+    return Object.values(aggregated)
   }
 
   const calculateCostAnalysis = async (currentData: any[], allData: any[]) => {
@@ -362,24 +386,24 @@ export default function CostAnalysisPage() {
   const calculateCostTrends = async (allData: any[]): Promise<CostTrend[]> => {
     return allData.map(({ report, data }) => {
       const income = data
-        .filter(row => row.tipo === "Ingresos")
-        .reduce((sum, row) => sum + (row.monto || 0), 0)
+        .filter((row: any) => row.tipo === "Ingresos")
+        .reduce((sum: number, row: any) => sum + (row.monto || 0), 0)
 
       const materiaPrima = Math.abs(data
-        .filter(row => row.tipo === "Egresos" && row.clasificacion === "Materia prima")
-        .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
+        .filter((row: any) => row.tipo === "Egresos" && row.clasificacion === "Materia prima")
+        .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0))
 
       const operativos = Math.abs(data
-        .filter(row => row.tipo === "Egresos" && row.clasificacion === "Costo Operativo")
-        .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
+        .filter((row: any) => row.tipo === "Egresos" && row.clasificacion === "Costo Operativo")
+        .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0))
 
       const fijos = Math.abs(data
-        .filter(row => row.tipo === "Egresos" && row.clasificacion === "Costo Fijo")
-        .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
+        .filter((row: any) => row.tipo === "Egresos" && row.clasificacion === "Costo Fijo")
+        .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0))
 
       const personal = Math.abs(data
-        .filter(row => row.tipo === "Egresos" && row.categoria_1?.includes("Nómina"))
-        .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
+        .filter((row: any) => row.tipo === "Egresos" && row.categoria_1?.includes("Nómina"))
+        .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0))
 
       const totalCosts = materiaPrima + operativos + fijos + personal
       const eficienciaGeneral = income > 0 ? ((income - totalCosts) / income) * 100 : 0

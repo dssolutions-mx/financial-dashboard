@@ -193,13 +193,15 @@ export default function BusinessUnitsPage() {
   const calculateBusinessUnitAnalysis = async (allData: any[]) => {
     if (allData.length === 0) return
 
-    // Calculate metrics from latest report
-    const latestData = allData[0].data
-    const unitMetrics = calculateUnitMetrics(latestData, allData)
+    // Aggregate data from all reports in the selected timeframe
+    const aggregatedData = aggregateReportsData(allData)
+
+    // Calculate metrics from aggregated data
+    const unitMetrics = calculateUnitMetrics(aggregatedData, allData)
     setBusinessUnitMetrics(unitMetrics)
 
-    // Calculate plant comparison
-    const plantComp = calculatePlantComparison(latestData)
+    // Calculate plant comparison using aggregated data
+    const plantComp = calculatePlantComparison(aggregatedData)
     setPlantComparison(plantComp)
 
     // Calculate trends
@@ -213,6 +215,28 @@ export default function BusinessUnitsPage() {
     // Calculate KPI comparison
     const kpiComp = calculateKPIComparison(unitMetrics)
     setKpiComparison(kpiComp)
+  }
+
+  // New function to aggregate data from multiple reports
+  const aggregateReportsData = (allData: any[]) => {
+    const aggregated: Record<string, any> = {}
+    
+    allData.forEach(({ data }) => {
+      data.forEach((row: any) => {
+        const key = `${row.tipo}-${row.planta}-${row.categoria_1}-${row.categoria_2}-${row.categoria_3}-${row.cuenta}`
+        
+        if (aggregated[key]) {
+          aggregated[key].monto += (row.monto || 0)
+        } else {
+          aggregated[key] = {
+            ...row,
+            monto: row.monto || 0
+          }
+        }
+      })
+    })
+    
+    return Object.values(aggregated)
   }
 
   const calculateUnitMetrics = (currentData: any[], allData: any[]): BusinessUnitMetrics[] => {

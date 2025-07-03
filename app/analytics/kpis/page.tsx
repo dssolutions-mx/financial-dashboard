@@ -130,25 +130,26 @@ export default function KPIsPage() {
         allData.push({ report, data: reportData })
       }
 
-      // Calculate KPIs from latest report
+      // Aggregate data from all selected reports
+      const aggregatedData = aggregateReportsData(allData)
+
+      // Calculate KPIs from aggregated data
       const latestReportData = allData[0]
-      const metrics = calculateKPIMetrics(latestReportData.data, latestReportData.report, allData)
+      const metrics = calculateKPIMetrics(aggregatedData, latestReportData.report, allData)
       setKpiMetrics(metrics)
 
-      // Calculate plant performance
-      const plantPerf = calculatePlantPerformance(latestReportData.data)
+      // Calculate plant performance using aggregated data
+      const plantPerf = calculatePlantPerformance(aggregatedData)
       setPlantPerformance(plantPerf)
 
-      // Calculate business unit performance
-      const businessUnitPerf = calculateBusinessUnitPerformance(latestReportData.data)
+      // Calculate business unit performance using aggregated data
+      const businessUnitPerf = calculateBusinessUnitPerformance(aggregatedData)
       setBusinessUnitPerformance(businessUnitPerf)
 
-      // Calculate category breakdowns
-      const { income, expense } = calculateCategoryBreakdowns(latestReportData.data)
+      // Calculate category breakdowns using aggregated data
+      const { income, expense } = calculateCategoryBreakdowns(aggregatedData)
       setIncomeBreakdown(income)
       setExpenseBreakdown(expense)
-
-
 
     } catch (error) {
       console.error("Error loading KPI data:", error)
@@ -160,6 +161,28 @@ export default function KPIsPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // New function to aggregate data from multiple reports
+  const aggregateReportsData = (allData: any[]) => {
+    const aggregated: Record<string, any> = {}
+    
+    allData.forEach(({ data }) => {
+      data.forEach((row: any) => {
+        const key = `${row.tipo}-${row.planta}-${row.categoria_1}-${row.categoria_2}-${row.categoria_3}-${row.cuenta}`
+        
+        if (aggregated[key]) {
+          aggregated[key].monto += (row.monto || 0)
+        } else {
+          aggregated[key] = {
+            ...row,
+            monto: row.monto || 0
+          }
+        }
+      })
+    })
+    
+    return Object.values(aggregated)
   }
 
   const calculateKPIMetrics = (data: any[], report: FinancialReport, allData: any[]): KPIMetric[] => {
