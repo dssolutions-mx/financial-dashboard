@@ -451,6 +451,15 @@ export default function HistoricalTrendsPage() {
     return formatCurrency(amount)
   }
 
+  const formatAxisNumber = (value: number) => {
+    if (Math.abs(value) >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`
+    } else if (Math.abs(value) >= 1000) {
+      return `${(value / 1000).toFixed(0)}K`
+    }
+    return value.toString()
+  }
+
   const formatVolume = (volume: number) => {
     return new Intl.NumberFormat("es-MX", {
       minimumFractionDigits: 0,
@@ -559,7 +568,7 @@ export default function HistoricalTrendsPage() {
           })}
         </div>
 
-        {/* Main Trends Chart */}
+        {/* Main Analysis Chart */}
         <Card className="shadow-lg">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -584,19 +593,26 @@ export default function HistoricalTrendsPage() {
                 {(() => {
                   if (selectedChart === "financial") {
                     return (
-                      <ComposedChart data={trendData}>
+                      <ComposedChart data={trendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                        <XAxis dataKey="period" />
-                        <YAxis yAxisId="left" />
-                        <YAxis yAxisId="right" orientation="right" />
+                        <XAxis dataKey="period" fontSize={12} />
+                        <YAxis yAxisId="left" tickFormatter={formatAxisNumber} fontSize={12} />
+                        <YAxis yAxisId="right" orientation="right" tickFormatter={formatAxisNumber} fontSize={12} />
                         <Tooltip 
                           formatter={(value: number, name: string) => [
-                            name.includes('Acumulad') ? formatCompactCurrency(value) : formatCompactCurrency(value),
+                            formatCompactCurrency(value),
                             name
                           ]}
                           labelFormatter={(label) => `Período: ${label}`}
+                          contentStyle={{
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            fontSize: '14px'
+                          }}
                         />
-                        <Legend />
+                        <Legend wrapperStyle={{ fontSize: '14px' }} />
                         
                         {/* Monthly bars */}
                         <Bar yAxisId="left" dataKey="ingresos" fill="#10b981" name="Ingresos Mensuales" opacity={0.7} />
@@ -634,12 +650,21 @@ export default function HistoricalTrendsPage() {
                     )
                   } else if (selectedChart === "businessUnit") {
                     return (
-                      <AreaChart data={businessUnitTrends}>
+                      <AreaChart data={businessUnitTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                        <XAxis dataKey="period" />
-                        <YAxis />
-                        <Tooltip formatter={(value: number) => [formatCompactCurrency(value), '']} />
-                        <Legend />
+                        <XAxis dataKey="period" fontSize={12} />
+                        <YAxis tickFormatter={formatAxisNumber} fontSize={12} />
+                        <Tooltip 
+                          formatter={(value: number) => [formatCompactCurrency(value), '']}
+                          contentStyle={{
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            fontSize: '14px'
+                          }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '14px' }} />
                         <Area 
                           type="monotone" 
                           dataKey="BAJIO" 
@@ -676,18 +701,25 @@ export default function HistoricalTrendsPage() {
                     )
                   } else {
                     return (
-                      <ComposedChart data={costEfficiencyTrends}>
+                      <ComposedChart data={costEfficiencyTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                        <XAxis dataKey="period" />
-                        <YAxis yAxisId="left" />
-                        <YAxis yAxisId="right" orientation="right" />
+                        <XAxis dataKey="period" fontSize={12} />
+                        <YAxis yAxisId="left" tickFormatter={formatAxisNumber} fontSize={12} />
+                        <YAxis yAxisId="right" orientation="right" fontSize={12} />
                         <Tooltip 
                           formatter={(value: number, name: string) => [
                             name === 'Eficiencia' ? `${value.toFixed(1)}%` : formatCompactCurrency(value),
                             name
                           ]}
+                          contentStyle={{
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            fontSize: '14px'
+                          }}
                         />
-                        <Legend />
+                        <Legend wrapperStyle={{ fontSize: '14px' }} />
                         
                         <Bar yAxisId="left" dataKey="materiaPrima" fill="#ef4444" name="Materia Prima" />
                         <Bar yAxisId="left" dataKey="costoOperativo" fill="#f59e0b" name="Costo Operativo" />
@@ -728,18 +760,25 @@ export default function HistoricalTrendsPage() {
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={trendData}>
+                  <ComposedChart data={trendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis dataKey="period" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
+                    <XAxis dataKey="period" fontSize={12} />
+                    <YAxis yAxisId="left" tickFormatter={formatAxisNumber} fontSize={12} />
+                    <YAxis yAxisId="right" orientation="right" fontSize={12} />
                     <Tooltip 
                       formatter={(value: number, name: string) => [
-                        name === 'Margen' ? `${value.toFixed(1)}%` : formatCompactCurrency(value),
+                        name === 'Margen (%)' ? `${value.toFixed(1)}%` : formatCompactCurrency(value),
                         name
                       ]}
+                      contentStyle={{
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        fontSize: '14px'
+                      }}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ fontSize: '14px' }} />
                     <Bar yAxisId="left" dataKey="utilidad" fill="#3b82f6" name="Utilidad" />
                     <Line 
                       yAxisId="right"

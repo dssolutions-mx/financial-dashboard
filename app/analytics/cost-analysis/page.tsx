@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { SupabaseStorageService, FinancialReport } from "@/lib/supabase-storage"
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, TreemapChart, Treemap, LineChart, Line, RadialBarChart, RadialBar } from "recharts"
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, RadialBarChart, RadialBar, ComposedChart } from "recharts"
 import { 
   Calculator, 
   TrendingDown, 
@@ -24,7 +24,8 @@ import {
   Users,
   ArrowUpRight,
   ArrowDownRight,
-  Minus
+  Minus,
+  Activity
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -412,6 +413,15 @@ export default function CostAnalysisPage() {
     return formatCurrency(amount)
   }
 
+  const formatAxisNumber = (value: number) => {
+    if (Math.abs(value) >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`
+    } else if (Math.abs(value) >= 1000) {
+      return `${(value / 1000).toFixed(0)}K`
+    }
+    return value.toString()
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "excellent": return "text-green-600 bg-green-50"
@@ -551,15 +561,15 @@ export default function CostAnalysisPage() {
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Distribución de Costos por Categoría
+                  <PieChart className="h-5 w-5" />
+                  Análisis de Costos por Categoría
                 </CardTitle>
                 <CardDescription>
-                  Análisis detallado de estructura de costos
+                  Distribución porcentual de costos por categoría principal
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
+                <div className="h-96">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -575,9 +585,35 @@ export default function CostAnalysisPage() {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => [formatCompactCurrency(value), '']} />
+                      <Tooltip 
+                        formatter={(value: number) => [formatCompactCurrency(value), '']}
+                        contentStyle={{
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          fontSize: '14px'
+                        }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
+                </div>
+                <div className="mt-6 grid grid-cols-2 gap-4">
+                  {costCategories.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-sm font-semibold text-gray-700">{item.name}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-gray-900">{formatCompactCurrency(item.amount)}</div>
+                        <div className="text-xs text-gray-500 font-medium">{item.percentage.toFixed(1)}%</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -641,12 +677,21 @@ export default function CostAnalysisPage() {
             <CardContent>
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={plantCostBreakdown}>
+                  <BarChart data={plantCostBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis dataKey="planta" />
-                    <YAxis />
-                    <Tooltip formatter={(value: number) => [formatCompactCurrency(value), '']} />
-                    <Legend />
+                    <XAxis dataKey="planta" fontSize={12} />
+                    <YAxis tickFormatter={formatAxisNumber} fontSize={12} />
+                    <Tooltip 
+                      formatter={(value: number) => [formatCompactCurrency(value), '']}
+                      contentStyle={{
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        fontSize: '14px'
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '14px' }} />
                     <Bar dataKey="materiaPrima" stackId="1" fill="#dc2626" name="Materia Prima" />
                     <Bar dataKey="costoOperativo" stackId="1" fill="#ea580c" name="Costo Operativo" />
                     <Bar dataKey="costoFijo" stackId="1" fill="#d97706" name="Costo Fijo" />
@@ -719,8 +764,17 @@ export default function CostAnalysisPage() {
                     <LineChart data={costTrends}>
                       <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                       <XAxis dataKey="period" />
-                      <YAxis />
-                      <Tooltip formatter={(value: number) => [formatCompactCurrency(value), '']} />
+                      <YAxis tickFormatter={formatAxisNumber} />
+                      <Tooltip 
+                        formatter={(value: number) => [formatCompactCurrency(value), '']}
+                        contentStyle={{
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          fontSize: '14px'
+                        }}
+                      />
                       <Legend />
                       <Line type="monotone" dataKey="materiaPrima" stroke="#dc2626" strokeWidth={2} name="Materia Prima" />
                       <Line type="monotone" dataKey="operativos" stroke="#ea580c" strokeWidth={2} name="Operativos" />

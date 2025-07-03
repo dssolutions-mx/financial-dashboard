@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { 
   BarChart3, 
@@ -378,6 +378,10 @@ function MobileSidebar() {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="flex flex-col p-0 w-64">
+        <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+        <SheetDescription className="sr-only">
+          Access the main navigation menu to browse different sections of the financial dashboard.
+        </SheetDescription>
         <ExpandedSidebar />
       </SheetContent>
     </Sheet>

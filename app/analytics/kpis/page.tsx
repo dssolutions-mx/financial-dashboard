@@ -421,6 +421,16 @@ export default function KPIsPage() {
     return formatCurrency(amount)
   }
 
+  // Add new function for axis formatting
+  const formatAxisNumber = (value: number) => {
+    if (Math.abs(value) >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`
+    } else if (Math.abs(value) >= 1000) {
+      return `${(value / 1000).toFixed(0)}K`
+    }
+    return value.toString()
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "excellent": return "bg-green-500"
@@ -560,14 +570,21 @@ export default function KPIsPage() {
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={businessUnitPerformance}>
+                  <BarChart data={businessUnitPerformance} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis dataKey="unit" />
-                    <YAxis />
+                    <XAxis dataKey="unit" fontSize={12} />
+                    <YAxis tickFormatter={formatAxisNumber} fontSize={12} />
                     <Tooltip 
                       formatter={(value: number) => [formatCompactCurrency(value), '']}
+                      contentStyle={{
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        fontSize: '14px'
+                      }}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ fontSize: '14px' }} />
                     <Bar dataKey="ingresos" fill="#10b981" name="Ingresos" />
                     <Bar dataKey="egresos" fill="#ef4444" name="Egresos" />
                     <Bar dataKey="utilidad" fill="#3b82f6" name="Utilidad" />
@@ -588,27 +605,40 @@ export default function KPIsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {plantPerformance.slice(0, 6).map((plant, index) => (
-                  <div key={plant.planta} className="flex items-center justify-between p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                        <span className="text-sm font-bold text-green-800">{plant.planta}</span>
+                  <div key={plant.planta} className="p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                    {/* Header row with plant info */}
+                    <div className="flex items-center space-x-4 mb-3">
+                      <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-green-800">
+                          {plant.planta.includes('SIN') ? 'SC' : plant.planta}
+                        </span>
                       </div>
-                      <div className="min-w-0">
-                        <div className="font-semibold text-gray-900 text-lg">{plant.planta}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-gray-900 text-lg truncate">
+                          {plant.planta === 'SIN CLASIFICACION' ? 'SIN CLASIFICACIÓN' : plant.planta}
+                        </div>
                         <div className="text-sm text-gray-600 font-medium">{plant.businessUnit}</div>
                       </div>
                     </div>
-                    <div className="text-right px-4">
-                      <div className="font-bold text-gray-900 text-lg">{formatCompactCurrency(plant.ingresos)}</div>
-                      <div className="text-sm text-gray-500 font-medium">{plant.participacion.toFixed(1)}% participación</div>
-                    </div>
-                    <div className="text-right min-w-0">
-                      <div className={`font-bold text-lg ${plant.margen >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {plant.margen.toFixed(1)}%
+                    
+                    {/* Metrics grid */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <div className="font-bold text-gray-900 text-lg">{formatCompactCurrency(plant.ingresos)}</div>
+                        <div className="text-xs text-gray-500 font-medium">{plant.participacion.toFixed(1)}% participación</div>
                       </div>
-                      <div className="text-sm text-gray-500 font-medium">margen</div>
+                      <div className="text-center">
+                        <div className={`font-bold text-lg ${plant.margen >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {plant.margen.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-500 font-medium">margen</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-bold text-gray-900 text-lg">{plant.eficiencia.toFixed(1)}%</div>
+                        <div className="text-xs text-gray-500 font-medium">eficiencia</div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -653,7 +683,8 @@ export default function KPIsPage() {
                         backgroundColor: '#f8fafc',
                         border: '1px solid #e2e8f0',
                         borderRadius: '8px',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        fontSize: '14px'
                       }}
                     />
                   </PieChart>
@@ -713,7 +744,8 @@ export default function KPIsPage() {
                         backgroundColor: '#f8fafc',
                         border: '1px solid #e2e8f0',
                         borderRadius: '8px',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        fontSize: '14px'
                       }}
                     />
                   </PieChart>

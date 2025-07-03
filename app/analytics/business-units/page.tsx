@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 import { SupabaseStorageService, FinancialReport } from "@/lib/supabase-storage"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart, Area, AreaChart } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart, Area, AreaChart, PieChart, Pie, Cell } from "recharts"
 import { 
   Building2, 
   TrendingUp, 
@@ -24,7 +24,8 @@ import {
   ArrowDownRight,
   Minus,
   Crown,
-  Activity
+  Activity,
+  PieChart as PieChartIcon
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -351,8 +352,8 @@ export default function BusinessUnitsPage() {
       const unitIncome = { BAJIO: 0, VIADUCTO: 0, ITISA: 0, OTROS: 0 }
       
       data
-        .filter(row => row.tipo === "Ingresos")
-        .forEach(row => {
+        .filter((row: any) => row.tipo === "Ingresos")
+        .forEach((row: any) => {
           const unit = PLANT_TO_UNIT[row.planta] || "OTROS"
           unitIncome[unit as keyof typeof unitIncome] += row.monto || 0
         })
@@ -448,6 +449,15 @@ export default function BusinessUnitsPage() {
       return `$${(amount / 1000).toFixed(0)}K`
     }
     return formatCurrency(amount)
+  }
+
+  const formatAxisNumber = (value: number) => {
+    if (Math.abs(value) >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`
+    } else if (Math.abs(value) >= 1000) {
+      return `${(value / 1000).toFixed(0)}K`
+    }
+    return value.toString()
   }
 
   const getStatusInfo = (status: string) => {
@@ -627,12 +637,21 @@ export default function BusinessUnitsPage() {
               <CardContent>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={businessUnitMetrics}>
+                    <BarChart data={businessUnitMetrics} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis dataKey="unit" />
-                      <YAxis />
-                      <Tooltip formatter={(value: number) => [formatCompactCurrency(value), '']} />
-                      <Legend />
+                      <XAxis dataKey="unit" fontSize={12} />
+                      <YAxis tickFormatter={formatAxisNumber} fontSize={12} />
+                      <Tooltip 
+                        formatter={(value: number) => [formatCompactCurrency(value), '']}
+                        contentStyle={{
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          fontSize: '14px'
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '14px' }} />
                       <Bar dataKey="ingresos" fill="#10b981" name="Ingresos" />
                       <Bar dataKey="egresos" fill="#ef4444" name="Egresos" />
                       <Bar dataKey="utilidad" fill="#3b82f6" name="Utilidad" />
@@ -646,7 +665,7 @@ export default function BusinessUnitsPage() {
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
+                  <PieChartIcon className="h-5 w-5" />
                   Participación de Mercado
                 </CardTitle>
                 <CardDescription>
@@ -654,29 +673,55 @@ export default function BusinessUnitsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {businessUnitMetrics.map((unit, index) => {
-                    const config = UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]
-                    
-                    return (
-                      <div key={unit.unit} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
-                        <div className="flex items-center space-x-3">
-                          <div 
-                            className="w-4 h-4 rounded-full" 
-                            style={{ backgroundColor: unit.color }}
-                          />
-                          <div>
-                            <div className="font-medium text-gray-900">{config?.name}</div>
-                            <div className="text-sm text-gray-500">{formatCompactCurrency(unit.ingresos)}</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-gray-900">{unit.participacionMercado.toFixed(1)}%</div>
-                          <div className="text-sm text-gray-500">del mercado</div>
-                        </div>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={businessUnitMetrics.map((unit, index) => ({
+                          name: UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]?.name || unit.unit,
+                          value: unit.ingresos,
+                          color: UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]?.color || "#6b7280"
+                        }))}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {businessUnitMetrics.map((unit, index) => (
+                          <Cell key={`cell-${index}`} fill={UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]?.color || "#6b7280"} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number) => [formatCompactCurrency(value), '']}
+                        contentStyle={{
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          fontSize: '14px'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-6 space-y-3">
+                  {businessUnitMetrics.map((unit, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]?.color || "#6b7280" }}
+                        />
+                        <span className="text-sm font-semibold text-gray-700">{UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]?.name || unit.unit}</span>
                       </div>
-                    )
-                  })}
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-gray-900">{formatCompactCurrency(unit.ingresos)}</div>
+                        <div className="text-xs text-gray-500 font-medium">{unit.participacionMercado.toFixed(1)}%</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -697,12 +742,21 @@ export default function BusinessUnitsPage() {
             <CardContent>
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={unitTrends}>
+                  <AreaChart data={unitTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis dataKey="period" />
-                    <YAxis />
-                    <Tooltip formatter={(value: number) => [formatCompactCurrency(value), '']} />
-                    <Legend />
+                    <XAxis dataKey="period" fontSize={12} />
+                    <YAxis tickFormatter={formatAxisNumber} fontSize={12} />
+                    <Tooltip 
+                      formatter={(value: number) => [formatCompactCurrency(value), '']}
+                      contentStyle={{
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                        fontSize: '14px'
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '14px' }} />
                     <Area 
                       type="monotone" 
                       dataKey="BAJIO" 
@@ -726,14 +780,6 @@ export default function BusinessUnitsPage() {
                       stroke="#8b5cf6" 
                       fill="#8b5cf6" 
                       name="ITISA"
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="OTROS" 
-                      stackId="1" 
-                      stroke="#f59e0b" 
-                      fill="#f59e0b" 
-                      name="OTROS"
                     />
                   </AreaChart>
                 </ResponsiveContainer>
