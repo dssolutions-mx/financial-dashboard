@@ -1,12 +1,12 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { DashboardLayout } from "@/components/dashboard-layout"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { SupabaseStorageService, FinancialReport } from "@/lib/supabase-storage"
+import { SupabaseStorageService, FinancialReport } from "@/lib/supabase/storage"
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, RadialBarChart, RadialBar, ComposedChart } from "recharts"
 import { 
   Calculator, 
@@ -478,7 +478,7 @@ export default function CostAnalysisPage() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando análisis de costos...</p>
+            <p className="text-muted-foreground">Cargando análisis de costos...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -491,8 +491,8 @@ export default function CostAnalysisPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Análisis de Costos</h1>
-            <p className="text-gray-600 mt-1">Análisis detallado de estructura de costos y eficiencia</p>
+            <h1 className="text-3xl font-bold text-foreground">Análisis de Costos</h1>
+            <p className="text-muted-foreground mt-1">Análisis detallado de estructura de costos y eficiencia</p>
           </div>
           <div className="flex gap-4 mt-4 sm:mt-0">
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -525,11 +525,11 @@ export default function CostAnalysisPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Costos Totales</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatCompactCurrency(totalCosts)}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {totalIncome > 0 ? `${((totalCosts / totalIncome) * 100).toFixed(1)}% de ingresos` : 'N/A'}
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground">Costos Totales</p>
+                  <p className="text-2xl font-bold text-foreground">{formatCompactCurrency(totalCosts)}</p>
+                                      <p className="text-xs text-muted-foreground mt-1">
+                      {totalIncome > 0 ? `${((totalCosts / totalIncome) * 100).toFixed(1)}% de ingresos` : 'N/A'}
+                    </p>
                 </div>
                 <Calculator className="h-8 w-8 text-red-500" />
               </div>
@@ -540,8 +540,8 @@ export default function CostAnalysisPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Eficiencia General</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-muted-foreground">Eficiencia General</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {totalIncome > 0 ? `${(((totalIncome - totalCosts) / totalIncome) * 100).toFixed(1)}%` : 'N/A'}
                   </p>
                   <p className="text-xs text-green-600 mt-1">Meta: 85%</p>
@@ -555,9 +555,9 @@ export default function CostAnalysisPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Categorías Analizadas</p>
-                  <p className="text-2xl font-bold text-gray-900">{costCategories.length}</p>
-                  <p className="text-xs text-gray-500 mt-1">Categor. de gastos</p>
+                  <p className="text-sm font-medium text-muted-foreground">Categorías Analizadas</p>
+                  <p className="text-2xl font-bold text-foreground">{costCategories.length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Categor. de gastos</p>
                 </div>
                 <Package className="h-8 w-8 text-blue-500" />
               </div>
@@ -568,9 +568,9 @@ export default function CostAnalysisPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Plantas Activas</p>
-                  <p className="text-2xl font-bold text-gray-900">{plantCostBreakdown.length}</p>
-                  <p className="text-xs text-gray-500 mt-1">Con actividad</p>
+                  <p className="text-sm font-medium text-muted-foreground">Plantas Activas</p>
+                  <p className="text-2xl font-bold text-foreground">{plantCostBreakdown.length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Con actividad</p>
                 </div>
                 <Factory className="h-8 w-8 text-purple-500" />
               </div>
@@ -630,11 +630,11 @@ export default function CostAnalysisPage() {
                           className="w-4 h-4 rounded-full"
                           style={{ backgroundColor: item.color }}
                         />
-                        <span className="text-sm font-semibold text-gray-700">{item.name}</span>
+                        <span className="text-sm font-semibold text-foreground">{item.name}</span>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-bold text-gray-900">{formatCompactCurrency(item.amount)}</div>
-                        <div className="text-xs text-gray-500 font-medium">{item.percentage.toFixed(1)}%</div>
+                        <div className="text-sm font-bold text-foreground">{formatCompactCurrency(item.amount)}</div>
+                        <div className="text-xs text-muted-foreground font-medium">{item.percentage.toFixed(1)}%</div>
                       </div>
                     </div>
                   ))}
@@ -665,8 +665,8 @@ export default function CostAnalysisPage() {
                             <IconComponent className="h-5 w-5" style={{ color: category.color }} />
                           </div>
                           <div>
-                            <div className="font-medium text-gray-900">{category.name}</div>
-                            <div className="text-sm text-gray-500">{formatCompactCurrency(category.amount)}</div>
+                            <div className="font-medium text-foreground">{category.name}</div>
+                            <div className="text-sm text-muted-foreground">{formatCompactCurrency(category.amount)}</div>
                           </div>
                         </div>
                         <div className="text-right space-y-1">
@@ -676,7 +676,7 @@ export default function CostAnalysisPage() {
                             {category.status === "warning" && "Atención"}
                             {category.status === "critical" && "Crítico"}
                           </Badge>
-                          <div className="text-sm text-gray-500">{category.percentage.toFixed(1)}% del total</div>
+                          <div className="text-sm text-muted-foreground">{category.percentage.toFixed(1)}% del total</div>
                         </div>
                       </div>
                     )
@@ -755,12 +755,12 @@ export default function CostAnalysisPage() {
                             <TrendIcon className={`h-4 w-4 ${getTrendColor(metric.trend)}`} />
                           </div>
                           <div className="text-right">
-                            <div className="text-sm font-semibold text-gray-900">{efficiencyPercent.toFixed(1)}%</div>
-                            <div className="text-xs text-gray-500">eficiencia</div>
+                            <div className="text-sm font-semibold text-foreground">{efficiencyPercent.toFixed(1)}%</div>
+                            <div className="text-xs text-muted-foreground">eficiencia</div>
                           </div>
                         </div>
                         <Progress value={efficiencyPercent} className="h-2" />
-                        <div className="flex justify-between text-xs text-gray-500">
+                        <div className="flex justify-between text-xs text-muted-foreground">
                           <span>Actual: {formatCompactCurrency(metric.currentCost)}</span>
                           <span>Meta: {formatCompactCurrency(metric.targetCost)}</span>
                         </div>

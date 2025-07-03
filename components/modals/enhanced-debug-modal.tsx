@@ -32,8 +32,8 @@ import {
   getClasificacionesForSubCategoria,
   getCategoria1ForClasificacion,
   suggestClassification
-} from "@/lib/classification-hierarchy"
-import { ValidationSummary } from "@/lib/validation-engine"
+} from "@/lib/services/classification-service"
+import { ValidationSummary } from "@/lib/services/validation-service"
 
 export interface DebugDataRow {
   id?: string
@@ -204,16 +204,16 @@ const InlineEditor = React.memo(({
   }, [])
 
   return (
-    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3">
+    <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-3">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-yellow-800">
+        <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
           Editando: {row.Concepto.substring(0, 50)}...
         </span>
         <div className="flex gap-1">
-          <Button size="sm" variant="ghost" onClick={onCancel} className="h-7 px-2">
+          <Button size="sm" variant="ghost" onClick={onCancel} className="h-7 px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600">
             <X className="h-3 w-3" />
           </Button>
-          <Button size="sm" onClick={handleQuickSave} className="h-7 px-2">
+          <Button size="sm" onClick={handleQuickSave} className="h-7 px-2 bg-green-600 hover:bg-green-700 text-white">
             <Check className="h-3 w-3" />
           </Button>
         </div>
@@ -222,13 +222,13 @@ const InlineEditor = React.memo(({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
         <div>
           <Select value={localRow.Tipo} onValueChange={(value) => handleFieldChange('Tipo', value)}>
-            <SelectTrigger className="h-8">
+            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Ingresos">Ingresos</SelectItem>
-              <SelectItem value="Egresos">Egresos</SelectItem>
-              <SelectItem value="Indefinido">Sin Tipo</SelectItem>
+            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+              <SelectItem value="Ingresos" className="text-gray-900 dark:text-gray-100">Ingresos</SelectItem>
+              <SelectItem value="Egresos" className="text-gray-900 dark:text-gray-100">Egresos</SelectItem>
+              <SelectItem value="Indefinido" className="text-gray-900 dark:text-gray-100">Sin Tipo</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -239,13 +239,13 @@ const InlineEditor = React.memo(({
             onValueChange={(value) => handleFieldChange('Sub categoria', value)}
             disabled={!correctType || correctType === "Indefinido"}
           >
-            <SelectTrigger className="h-8">
+            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Sub categoría" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Sin Subcategoría">Sin Subcategoría</SelectItem>
+            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+              <SelectItem value="Sin Subcategoría" className="text-gray-900 dark:text-gray-100">Sin Subcategoría</SelectItem>
               {subCategorias.map(subcat => (
-                <SelectItem key={subcat} value={subcat}>{subcat}</SelectItem>
+                <SelectItem key={subcat} value={subcat} className="text-gray-900 dark:text-gray-100">{subcat}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -257,13 +257,13 @@ const InlineEditor = React.memo(({
             onValueChange={(value) => handleFieldChange('Clasificacion', value)}
             disabled={!localRow['Sub categoria'] || localRow['Sub categoria'] === "Sin Subcategoría"}
           >
-            <SelectTrigger className="h-8">
+            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Clasificación" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Sin Clasificación">Sin Clasificación</SelectItem>
+            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+              <SelectItem value="Sin Clasificación" className="text-gray-900 dark:text-gray-100">Sin Clasificación</SelectItem>
               {getClasificacionesForSubCategoria(correctType || "", localRow['Sub categoria'] || "").map(clasif => (
-                <SelectItem key={clasif} value={clasif}>{clasif}</SelectItem>
+                <SelectItem key={clasif} value={clasif} className="text-gray-900 dark:text-gray-100">{clasif}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -275,20 +275,20 @@ const InlineEditor = React.memo(({
             onValueChange={(value) => handleFieldChange('Categoria 1', value)}
             disabled={!localRow.Clasificacion || localRow.Clasificacion === "Sin Clasificación"}
           >
-            <SelectTrigger className="h-8">
+            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Categoría 1" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Sin Categoría">Sin Categoría</SelectItem>
+            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+              <SelectItem value="Sin Categoría" className="text-gray-900 dark:text-gray-100">Sin Categoría</SelectItem>
               {categorias1.map(cat => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                <SelectItem key={cat} value={cat} className="text-gray-900 dark:text-gray-100">{cat}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
       </div>
       
-      <div className="mt-2 text-xs text-gray-600">
+      <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
         {formatCurrency(row.Monto)} • {row.Codigo} • {row.Planta}
       </div>
     </div>
@@ -357,7 +357,26 @@ export default function EnhancedDebugModal({
     const newData = data.map(row => {
       const currentRowId = row.id || row.Codigo
       if (currentRowId === rowId) {
-        return { ...row, ...updates }
+        const updatedRow = { ...row, ...updates }
+        
+        // Recalculate Monto when Tipo changes
+        if (updates.Tipo) {
+          const cargos = updatedRow.Cargos || 0
+          const abonos = updatedRow.Abonos || 0
+          
+          let newMonto = 0
+          if (updates.Tipo === "Ingresos") {
+            newMonto = abonos - cargos // Net income: Abonos minus any returns/adjustments in Cargos
+          } else if (updates.Tipo === "Egresos") {
+            newMonto = cargos - abonos // Net expense: Cargos minus any refunds/adjustments in Abonos
+          } else {
+            newMonto = abonos - cargos // Default logic for indefinido or other types
+          }
+          
+          updatedRow.Monto = newMonto
+        }
+        
+        return updatedRow
       }
       return row
     })
@@ -460,18 +479,18 @@ export default function EnhancedDebugModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+          <DialogTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
             <div className="flex items-center gap-3">
-              <Target className="h-5 w-5 text-blue-600" />
+              <Target className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               <span>Validación de Totales Jerárquicos</span>
               <Badge variant={stats.validationStatus === 'valid' ? "default" : "destructive"}>
                 {stats.validationStatus === 'valid' ? 'Totales Coinciden' : 'Verificar Totales'}
               </Badge>
             </div>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-gray-600 dark:text-gray-300">
             Revisa y ajusta las clasificaciones para que los totales clasificados coincidan con las metas jerárquicas. 
             No todos los elementos necesitan clasificación.
           </DialogDescription>
@@ -479,32 +498,32 @@ export default function EnhancedDebugModal({
 
         {/* Hierarchy Validation Summary */}
         {validationSummary && (
-          <Alert className={validationSummary.isValid ? "border-green-200 bg-green-50" : "border-orange-200 bg-orange-50"}>
-            <Target className="h-4 w-4" />
-            <AlertDescription>
+          <Alert className={validationSummary.isValid ? "border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20" : "border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/20"}>
+            <Target className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+            <AlertDescription className="text-gray-700 dark:text-gray-300">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
                     <strong>Ingresos:</strong>
                   </span>
                   <div className="text-right">
                     <div className="text-sm">Meta: {formatCurrency(validationSummary.hierarchyTotals.ingresos)}</div>
                     <div className="text-sm">Clasificado: {formatCurrency(validationSummary.classifiedTotals.ingresos)}</div>
-                    <div className={`text-sm font-medium ${Math.abs(validationSummary.variance.ingresos) <= 0.01 ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`text-sm font-medium ${Math.abs(validationSummary.variance.ingresos) <= 0.01 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                       Diferencia: {formatCurrency(validationSummary.variance.ingresos)}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2">
-                    <TrendingDown className="h-4 w-4 text-red-600" />
+                    <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
                     <strong>Egresos:</strong>
                   </span>
                   <div className="text-right">
                     <div className="text-sm">Meta: {formatCurrency(validationSummary.hierarchyTotals.egresos)}</div>
                     <div className="text-sm">Clasificado: {formatCurrency(validationSummary.classifiedTotals.egresos)}</div>
-                    <div className={`text-sm font-medium ${Math.abs(validationSummary.variance.egresos) <= 0.01 ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`text-sm font-medium ${Math.abs(validationSummary.variance.egresos) <= 0.01 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                       Diferencia: {formatCurrency(validationSummary.variance.egresos)}
                     </div>
                   </div>
@@ -516,34 +535,34 @@ export default function EnhancedDebugModal({
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <CardContent className="p-3">
-              <div className="text-xl font-bold text-blue-600">{stats.totalDetail}</div>
-              <div className="text-xs text-gray-600">Registros Detalle</div>
+              <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{stats.totalDetail}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Registros Detalle</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <CardContent className="p-3">
-              <div className="text-xl font-bold text-green-600">{stats.classified}</div>
-              <div className="text-xs text-gray-600">Clasificados</div>
+              <div className="text-xl font-bold text-green-600 dark:text-green-400">{stats.classified}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Clasificados</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <CardContent className="p-3">
-              <div className="text-xl font-bold text-yellow-600">{stats.partial}</div>
-              <div className="text-xs text-gray-600">Parciales</div>
+              <div className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{stats.partial}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Parciales</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <CardContent className="p-3">
-              <div className="text-xl font-bold text-orange-600">{stats.unclassified}</div>
-              <div className="text-xs text-gray-600">Sin Clasificar</div>
+              <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{stats.unclassified}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Sin Clasificar</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <CardContent className="p-3">
-              <div className="text-sm font-bold text-purple-600">{formatCurrency(stats.unclassifiedAmount)}</div>
-              <div className="text-xs text-gray-600">Monto Pendiente</div>
+              <div className="text-sm font-bold text-purple-600 dark:text-purple-400">{formatCurrency(stats.unclassifiedAmount)}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Monto Pendiente</div>
             </CardContent>
           </Card>
         </div>
@@ -552,33 +571,33 @@ export default function EnhancedDebugModal({
         <div className="flex flex-col md:flex-row gap-4 mb-4">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
               <Input
                 placeholder="Buscar por concepto, código o planta..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
               />
             </div>
           </div>
           <Select value={selectedFilter} onValueChange={setSelectedFilter}>
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-64 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="unclassified">🔍 Sin Clasificar</SelectItem>
-              <SelectItem value="partial">⚡ Clasificación Parcial</SelectItem>
-              <SelectItem value="classified">✅ Clasificados</SelectItem>
-              <SelectItem value="hierarchy">📊 Totales Jerárquicos</SelectItem>
-              <SelectItem value="detail">📋 Todos los Detalles</SelectItem>
-              <SelectItem value="ingresos">💰 Solo Ingresos</SelectItem>
-              <SelectItem value="egresos">💸 Solo Egresos</SelectItem>
-              <SelectItem value="all">🗂️ Todos los Registros</SelectItem>
+            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+              <SelectItem value="unclassified" className="text-gray-900 dark:text-gray-100">🔍 Sin Clasificar</SelectItem>
+              <SelectItem value="partial" className="text-gray-900 dark:text-gray-100">⚡ Clasificación Parcial</SelectItem>
+              <SelectItem value="classified" className="text-gray-900 dark:text-gray-100">✅ Clasificados</SelectItem>
+              <SelectItem value="hierarchy" className="text-gray-900 dark:text-gray-100">📊 Totales Jerárquicos</SelectItem>
+              <SelectItem value="detail" className="text-gray-900 dark:text-gray-100">📋 Todos los Detalles</SelectItem>
+              <SelectItem value="ingresos" className="text-gray-900 dark:text-gray-100">💰 Solo Ingresos</SelectItem>
+              <SelectItem value="egresos" className="text-gray-900 dark:text-gray-100">💸 Solo Egresos</SelectItem>
+              <SelectItem value="all" className="text-gray-900 dark:text-gray-100">🗂️ Todos los Registros</SelectItem>
             </SelectContent>
           </Select>
           {selectedRows.size > 0 && (
-            <Button onClick={handleBulkClassify} variant="outline">
+            <Button onClick={handleBulkClassify} variant="outline" className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700">
               <RefreshCw className="h-4 w-4 mr-2" />
               Auto-clasificar ({selectedRows.size})
             </Button>
@@ -587,9 +606,9 @@ export default function EnhancedDebugModal({
 
         {/* Info about allowing unclassified items */}
         {selectedFilter === "unclassified" && (
-          <Alert className="mb-4">
-            <Info className="h-4 w-4" />
-            <AlertDescription>
+          <Alert className="mb-4 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-gray-700 dark:text-gray-300">
               <strong>Nota:</strong> No todos los elementos necesitan clasificación. Algunos registros pueden permanecer 
               sin clasificar si no forman parte del sistema de clasificación principal. El objetivo es que los totales 
               clasificados coincidan con las metas jerárquicas.
@@ -599,11 +618,11 @@ export default function EnhancedDebugModal({
 
         {/* Data Table */}
         <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-[400px]">
+          <ScrollArea className="h-[400px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
+                <TableRow className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                  <TableHead className="w-12 text-gray-700 dark:text-gray-300">
                     <input
                       type="checkbox"
                       checked={selectedRows.size === processedData.length && processedData.length > 0}
@@ -614,23 +633,24 @@ export default function EnhancedDebugModal({
                           setSelectedRows(new Set())
                         }
                       }}
+                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                     />
                   </TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort('Concepto')}>
+                  <TableHead className="text-gray-700 dark:text-gray-300">Estado</TableHead>
+                  <TableHead className="cursor-pointer text-gray-700 dark:text-gray-300" onClick={() => handleSort('Concepto')}>
                     <div className="flex items-center">
                       Concepto <ArrowUpDown className="ml-1 h-4 w-4" />
                     </div>
                   </TableHead>
-                  <TableHead>Código</TableHead>
-                  <TableHead className="cursor-pointer text-right" onClick={() => handleSort('Monto')}>
+                  <TableHead className="text-gray-700 dark:text-gray-300">Código</TableHead>
+                  <TableHead className="cursor-pointer text-right text-gray-700 dark:text-gray-300" onClick={() => handleSort('Monto')}>
                     <div className="flex items-center justify-end">
                       Monto <ArrowUpDown className="ml-1 h-4 w-4" />
                     </div>
                   </TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Categoría 1</TableHead>
-                  <TableHead>Acciones</TableHead>
+                  <TableHead className="text-gray-700 dark:text-gray-300">Tipo</TableHead>
+                  <TableHead className="text-gray-700 dark:text-gray-300">Categoría 1</TableHead>
+                  <TableHead className="text-gray-700 dark:text-gray-300">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -658,13 +678,13 @@ export default function EnhancedDebugModal({
                     <TableRow 
                       key={rowId} 
                       className={`
-                        hover:bg-gray-50 transition-colors
-                        ${isHierarchy ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}
-                        ${status.status === 'classified' ? 'bg-green-50' : ''}
-                        ${status.status === 'untyped' ? 'bg-red-50' : ''}
+                        hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-200 dark:border-gray-700
+                        ${isHierarchy ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500 dark:border-l-blue-400' : ''}
+                        ${status.status === 'classified' ? 'bg-green-50 dark:bg-green-900/20' : ''}
+                        ${status.status === 'untyped' ? 'bg-red-50 dark:bg-red-900/20' : ''}
                       `}
                     >
-                      <TableCell>
+                      <TableCell className="text-gray-900 dark:text-gray-100">
                         {!isHierarchy && (
                           <input
                             type="checkbox"
@@ -678,10 +698,11 @@ export default function EnhancedDebugModal({
                               }
                               setSelectedRows(newSelectedRows)
                             }}
+                            className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                           />
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-gray-900 dark:text-gray-100">
                         <Badge 
                           variant={
                             status.color === 'green' ? 'default' : 
@@ -689,45 +710,45 @@ export default function EnhancedDebugModal({
                             status.color === 'yellow' ? 'outline' : 'destructive'
                           }
                           className={`text-xs ${
-                            status.color === 'yellow' ? 'border-yellow-500 text-yellow-700' :
-                            status.color === 'gray' ? 'bg-gray-100 text-gray-600' : ''
+                            status.color === 'yellow' ? 'border-yellow-500 dark:border-yellow-400 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20' :
+                            status.color === 'gray' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' : ''
                           }`}
                         >
                           {status.message}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[200px]">
+                      <TableCell className="max-w-[200px] text-gray-900 dark:text-gray-100">
                         <div className="truncate" title={row.Concepto}>
                           {row.Concepto}
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{row.Codigo}</TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="font-mono text-sm text-gray-900 dark:text-gray-100">{row.Codigo}</TableCell>
+                      <TableCell className="text-right font-medium text-gray-900 dark:text-gray-100">
                         {formatCurrency(row.Monto)}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
+                      <TableCell className="text-gray-900 dark:text-gray-100">
+                        <Badge variant="outline" className="text-xs border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                           {row.Tipo || 'Sin tipo'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[150px]">
+                      <TableCell className="max-w-[150px] text-gray-900 dark:text-gray-100">
                         <div className="truncate text-sm" title={row['Categoria 1']}>
                           {row['Categoria 1'] || 'Sin categoría'}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-gray-900 dark:text-gray-100">
                         {!isHierarchy && (
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => setEditingRowId(rowId)}
-                            className="h-7 px-2"
+                            className="h-7 px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600"
                           >
                             <Edit className="h-3 w-3" />
                           </Button>
                         )}
                         {isHierarchy && (
-                          <span className="text-xs text-blue-600 font-medium">
+                          <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
                             Total de Control
                           </span>
                         )}
@@ -740,14 +761,16 @@ export default function EnhancedDebugModal({
           </ScrollArea>
         </div>
 
-        <DialogFooter className="flex justify-between">
-          <div className="text-sm text-gray-600">
+        <DialogFooter className="flex justify-between border-t border-gray-200 dark:border-gray-700">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
             Mostrando {processedData.length} de {data.length} registros
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose}>Cerrar</Button>
+            <Button variant="outline" onClick={onClose} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700">
+              Cerrar
+            </Button>
             {onReturnToValidation && (
-              <Button onClick={onReturnToValidation}>
+              <Button onClick={onReturnToValidation} className="bg-green-600 hover:bg-green-700 text-white">
                 <Save className="h-4 w-4 mr-2" />
                 Volver a Validación
               </Button>

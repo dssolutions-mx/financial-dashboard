@@ -16,8 +16,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle, XCircle, AlertTriangle, Upload, Eye } from "lucide-react"
-import { ValidationSummary, ReportMetadata } from "@/lib/validation-engine"
-import { DebugDataRow } from "@/lib/excel-processor"
+import { ValidationSummary, ReportMetadata } from "@/lib/services/validation-service"
+import { DebugDataRow } from "@/lib/services/excel-processor"
 
 interface ValidationModalProps {
   isOpen: boolean

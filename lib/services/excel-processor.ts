@@ -1740,16 +1740,20 @@ export function processBalanzaComprobacion(inputFile: File): Promise<DebugDataRo
   });
 }
 
-// React component handler
+// React component handler - supports both File and ChangeEvent
 export const handleBalanzaFileUpload = (
-  event: React.ChangeEvent<HTMLInputElement>
-): Promise<DebugDataRow[]> => {
+  input: React.ChangeEvent<HTMLInputElement> | File
+): Promise<{data: DebugDataRow[], rawData: any[]}> => {
   return new Promise(async (resolve, reject) => {
-    const file = event.target.files?.[0];
+    const file = input instanceof File ? input : input.target.files?.[0];
     if (file) {
       processBalanzaComprobacion(file)
         .then((processedData) => {
-          resolve(processedData);
+          // Return both processed data and raw data for compatibility
+          resolve({
+            data: processedData,
+            rawData: processedData // For now, using processed data as raw data
+          });
         })
         .catch(error => {
           console.error('Error processing file:', error);

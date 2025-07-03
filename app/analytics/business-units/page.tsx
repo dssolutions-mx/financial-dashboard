@@ -1,13 +1,13 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { DashboardLayout } from "@/components/dashboard-layout"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
-import { SupabaseStorageService, FinancialReport } from "@/lib/supabase-storage"
+import { SupabaseStorageService, FinancialReport } from "@/lib/supabase/storage"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart, Area, AreaChart, PieChart, Pie, Cell } from "recharts"
 import { 
   Building2, 
@@ -537,7 +537,7 @@ export default function BusinessUnitsPage() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando análisis de unidades de negocio...</p>
+            <p className="text-muted-foreground">Cargando análisis de unidades de negocio...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -550,8 +550,8 @@ export default function BusinessUnitsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Unidades de Negocio</h1>
-            <p className="text-gray-600 mt-1">Análisis comparativo de rendimiento por unidad</p>
+            <h1 className="text-3xl font-bold text-foreground">Unidades de Negocio</h1>
+            <p className="text-muted-foreground mt-1">Análisis comparativo de rendimiento por unidad</p>
           </div>
           <div className="flex gap-4 mt-4 sm:mt-0">
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -596,31 +596,31 @@ export default function BusinessUnitsPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Building2 className="h-5 w-5 text-gray-600" />
-                      <CardTitle className="text-lg font-bold">{config?.name || unit.unit}</CardTitle>
+                      <CardTitle className="text-lg font-bold text-foreground">{config?.name || unit.unit}</CardTitle>
                     </div>
                     <Badge className={`${statusInfo.color} border`}>
                       <StatusIcon className="h-3 w-3 mr-1" />
                       {statusInfo.label}
                     </Badge>
                   </div>
-                  <p className="text-xs text-gray-500">{config?.description}</p>
+                  <p className="text-xs text-muted-foreground">{config?.description}</p>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-gray-600">Ingresos</span>
-                        <span className="text-lg font-bold text-gray-900">{formatCompactCurrency(unit.ingresos)}</span>
+                        <span className="text-sm text-muted-foreground">Ingresos</span>
+                        <span className="text-lg font-bold text-foreground">{formatCompactCurrency(unit.ingresos)}</span>
                       </div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-gray-600">Margen</span>
+                        <span className="text-sm text-muted-foreground">Margen</span>
                         <span className={`text-sm font-semibold ${unit.margenUtilidad >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {unit.margenUtilidad.toFixed(1)}%
                         </span>
                       </div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-600">Participación</span>
-                        <span className="text-sm font-semibold text-gray-900">{unit.participacionMercado.toFixed(1)}%</span>
+                        <span className="text-sm text-muted-foreground">Participación</span>
+                        <span className="text-sm font-semibold text-foreground">{unit.participacionMercado.toFixed(1)}%</span>
                       </div>
                       <Progress value={unit.participacionMercado} className="h-2" />
                     </div>
@@ -633,8 +633,8 @@ export default function BusinessUnitsPage() {
                         </span>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-gray-500">Rank #{unit.rank}</div>
-                        <div className="text-xs text-gray-500">{unit.plants.length} plantas</div>
+                        <div className="text-xs text-muted-foreground">Rank #{unit.rank}</div>
+                        <div className="text-xs text-muted-foreground">{unit.plants.length} plantas</div>
                       </div>
                     </div>
                   </div>
@@ -738,11 +738,11 @@ export default function BusinessUnitsPage() {
                           className="w-4 h-4 rounded-full"
                           style={{ backgroundColor: UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]?.color || "#6b7280" }}
                         />
-                        <span className="text-sm font-semibold text-gray-700">{UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]?.name || unit.unit}</span>
+                        <span className="text-sm font-semibold text-foreground">{UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]?.name || unit.unit}</span>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-bold text-gray-900">{formatCompactCurrency(unit.ingresos)}</div>
-                        <div className="text-xs text-gray-500 font-medium">{unit.participacionMercado.toFixed(1)}%</div>
+                        <div className="text-sm font-bold text-foreground">{formatCompactCurrency(unit.ingresos)}</div>
+                        <div className="text-xs text-muted-foreground font-medium">{unit.participacionMercado.toFixed(1)}%</div>
                       </div>
                     </div>
                   ))}
@@ -828,28 +828,28 @@ export default function BusinessUnitsPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-3 font-medium text-gray-900">Métrica</th>
-                      <th className="text-center p-3 font-medium text-gray-900">BAJIO</th>
-                      <th className="text-center p-3 font-medium text-gray-900">VIADUCTO</th>
-                      <th className="text-center p-3 font-medium text-gray-900">ITISA</th>
-                      <th className="text-center p-3 font-medium text-gray-900">OTROS</th>
-                      <th className="text-center p-3 font-medium text-gray-900">Mejor</th>
+                      <th className="text-left p-3 font-medium text-foreground">Métrica</th>
+                      <th className="text-center p-3 font-medium text-foreground">BAJIO</th>
+                      <th className="text-center p-3 font-medium text-foreground">VIADUCTO</th>
+                      <th className="text-center p-3 font-medium text-foreground">ITISA</th>
+                      <th className="text-center p-3 font-medium text-foreground">OTROS</th>
+                      <th className="text-center p-3 font-medium text-foreground">Mejor</th>
                     </tr>
                   </thead>
                   <tbody>
                     {kpiComparison.map((kpi, index) => (
                       <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-medium text-gray-900">{kpi.metric}</td>
-                        <td className={`text-center p-3 ${kpi.best === 'BAJIO' ? 'font-bold text-green-600' : 'text-gray-600'}`}>
+                        <td className="p-3 font-medium text-foreground">{kpi.metric}</td>
+                        <td className={`text-center p-3 ${kpi.best === 'BAJIO' ? 'font-bold text-green-600' : 'text-muted-foreground'}`}>
                           {kpi.BAJIO.toFixed(1)}
                         </td>
-                        <td className={`text-center p-3 ${kpi.best === 'VIADUCTO' ? 'font-bold text-green-600' : 'text-gray-600'}`}>
+                        <td className={`text-center p-3 ${kpi.best === 'VIADUCTO' ? 'font-bold text-green-600' : 'text-muted-foreground'}`}>
                           {kpi.VIADUCTO.toFixed(1)}
                         </td>
-                        <td className={`text-center p-3 ${kpi.best === 'ITISA' ? 'font-bold text-green-600' : 'text-gray-600'}`}>
+                        <td className={`text-center p-3 ${kpi.best === 'ITISA' ? 'font-bold text-green-600' : 'text-muted-foreground'}`}>
                           {kpi.ITISA.toFixed(1)}
                         </td>
-                        <td className={`text-center p-3 ${kpi.best === 'OTROS' ? 'font-bold text-green-600' : 'text-gray-600'}`}>
+                        <td className={`text-center p-3 ${kpi.best === 'OTROS' ? 'font-bold text-green-600' : 'text-muted-foreground'}`}>
                           {kpi.OTROS.toFixed(1)}
                         </td>
                         <td className="text-center p-3">
@@ -937,19 +937,19 @@ export default function BusinessUnitsPage() {
                             {plant.planta}
                           </div>
                           <div>
-                            <div className="font-medium text-gray-900">{plant.planta}</div>
-                            <div className="text-sm text-gray-500">{unitConfig?.name}</div>
+                            <div className="font-medium text-foreground">{plant.planta}</div>
+                            <div className="text-sm text-muted-foreground">{unitConfig?.name}</div>
                           </div>
                         </div>
                         <div className="text-right space-y-1">
-                          <div className="font-semibold text-gray-900">{formatCompactCurrency(plant.ingresos)}</div>
-                          <div className="text-sm text-gray-500">{plant.participacion.toFixed(1)}% participación</div>
+                          <div className="font-semibold text-foreground">{formatCompactCurrency(plant.ingresos)}</div>
+                          <div className="text-sm text-muted-foreground">{plant.participacion.toFixed(1)}% participación</div>
                         </div>
                         <div className="text-right">
                           <div className={`font-semibold ${plant.margen >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {plant.margen.toFixed(1)}%
                           </div>
-                          <div className="text-sm text-gray-500">margen</div>
+                          <div className="text-sm text-muted-foreground">margen</div>
                         </div>
                       </div>
                     )

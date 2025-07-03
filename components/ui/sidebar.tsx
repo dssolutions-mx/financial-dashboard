@@ -22,8 +22,12 @@ import {
   LineChart,
   DollarSign,
   Target,
-  AlertTriangle
+  AlertTriangle,
+  Package,
+  Truck,
+  Building2
 } from "lucide-react"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 export interface NavigationItem {
   id: string
@@ -75,34 +79,40 @@ const navigationSections: NavigationSection[] = [
     label: "Análisis e Historial",
     items: [
       {
-        id: "historical-trends",
-        icon: TrendingUp,
-        label: "Tendencias Históricas",
-        href: "/analytics/trends",
-      },
-      {
         id: "kpis",
         icon: Target,
         label: "KPIs y Métricas",
         href: "/analytics/kpis",
       },
       {
-        id: "comparative",
-        icon: PieChart,
-        label: "Análisis Comparativo",
-        href: "/analytics/comparative",
-      },
-      {
-        id: "projections",
+        id: "historical-trends",
         icon: TrendingUp,
-        label: "Proyecciones",
-        href: "/analytics/projections",
+        label: "Tendencias Históricas",
+        href: "/analytics/trends",
       },
       {
-        id: "pain-points",
+        id: "raw-materials",
+        icon: Database,
+        label: "Materias Primas",
+        href: "/analytics/raw-materials",
+      },
+      {
+        id: "operational-costs",
+        icon: Calculator,
+        label: "Costos Operativos",
+        href: "/analytics/operational-costs",
+      },
+      {
+        id: "cost-analysis",
+        icon: PieChart,
+        label: "Análisis de Costos",
+        href: "/analytics/cost-analysis",
+      },
+      {
+        id: "business-units",
         icon: AlertTriangle,
-        label: "Puntos Críticos",
-        href: "/analytics/pain-points",
+        label: "Unidades de Negocio",
+        href: "/analytics/business-units",
       }
     ]
   },
@@ -479,6 +489,10 @@ export function DashboardHeader({
             </React.Fragment>
           ))}
         </nav>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
       </div>
     </header>
   )

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Calendar, Database, FileText, Download, Trash2 } from "lucide-react"
-import { FinancialReport } from "@/lib/supabase-storage"
+import { FinancialReport } from "@/lib/supabase/storage"
 
 interface ReportSelectorProps {
   onSelectReport: (report: FinancialReport) => void
@@ -40,7 +40,7 @@ export default function ReportSelector({
     try {
       setIsLoading(true)
       // Import the storage service dynamically to avoid SSR issues
-      const { SupabaseStorageService } = await import("@/lib/supabase-storage")
+      const { SupabaseStorageService } = await import("@/lib/supabase/storage")
       const storageService = new SupabaseStorageService()
       const reportData = await storageService.getFinancialReports()
       setReports(reportData)

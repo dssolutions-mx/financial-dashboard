@@ -1,14 +1,15 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { DashboardLayout } from "@/components/dashboard-layout"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { SupabaseStorageService, FinancialReport } from "@/lib/supabase-storage"
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { SupabaseStorageService, FinancialReport } from "@/lib/supabase/storage"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, BarChart, Bar, ComposedChart } from "recharts"
-import { TrendingUp, TrendingDown, DollarSign, Activity, Calendar, Factory, Building2, Target, Percent } from "lucide-react"
+import { TrendingUp, TrendingDown, DollarSign, Activity, Calendar, Factory, Building2, Target, Percent, HelpCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface TrendData {
@@ -93,6 +94,22 @@ export default function HistoricalTrendsPage() {
       const allReports = await storageService.getFinancialReports()
       setReports(allReports)
 
+      // DEBUG: Investigate categories
+      console.log("🔍 DEBUGGING RAW MATERIALS DATA...")
+      try {
+        const debugData = await storageService.getUniqueCategoriesDebug()
+        console.log("📊 Available categoria_1 values:", debugData.categoria_1)
+        console.log("📊 Available sub_categoria values:", debugData.sub_categoria)
+        console.log("📊 Raw materials data found:", debugData.rawMaterialsData.length, "records")
+        
+        // Show some sample raw materials data
+        if (debugData.rawMaterialsData.length > 0) {
+          console.log("📊 Sample raw materials records:", debugData.rawMaterialsData.slice(0, 5))
+        }
+      } catch (debugError) {
+        console.error("Debug query failed:", debugError)
+      }
+
       // Process historical data for trends
       const trends = await processHistoricalTrends(allReports)
       setTrendData(trends)
@@ -166,13 +183,40 @@ export default function HistoricalTrendsPage() {
           .filter(row => row.tipo === "Ingresos" && row.planta === "P3")
           .reduce((sum, row) => sum + (row.monto || 0), 0)
 
-        // Cost breakdown
-        const materiaPrima = Math.abs(reportData
-          .filter(row => row.tipo === "Egresos" && row.clasificacion === "Materia prima")
-          .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
+        // Cost breakdown - FIXED: Using correct managerial categorization + raw material categories
+        const rawMaterialsRows = reportData.filter(row => row.tipo === "Egresos" && (
+          row.sub_categoria === "Costo Materias Primas" ||
+          ["Cemento", "Agregado Grueso", "Agregado Fino", "Aditivos", "Agua", "Adiciones especiales", "Adiciones Especiales"].includes(row.categoria_1 || "")
+        ))
+        
+        const materiaPrima = Math.abs(rawMaterialsRows.reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
+        
+        // DEBUG: Log details for first report to investigate
+        if (report === allReports[0]) {
+          console.log(`🔍 Report ${report.month}/${report.year} Debug:`)
+          console.log(`  📈 Total ingresos: ${ingresos.toLocaleString()}`)
+          console.log(`  📉 Total egresos: ${reportData.filter(r => r.tipo === "Egresos").length} records`)
+          console.log(`  🏭 Raw materials rows found: ${rawMaterialsRows.length}`)
+          console.log(`  💰 Raw materials total: ${materiaPrima.toLocaleString()}`)
+          
+          if (rawMaterialsRows.length > 0) {
+            console.log(`  📋 Sample raw materials:`, rawMaterialsRows.slice(0, 3).map(r => ({
+              categoria_1: r.categoria_1,
+              sub_categoria: r.sub_categoria,
+              concepto: r.concepto,
+              monto: r.monto
+            })))
+          } else {
+            console.log(`  ❌ No raw materials found! Checking all egresos categories:`)
+            const uniqueCategories = [...new Set(reportData.filter(r => r.tipo === "Egresos").map(r => r.categoria_1))]
+            const uniqueSubCategories = [...new Set(reportData.filter(r => r.tipo === "Egresos").map(r => r.sub_categoria))]
+            console.log(`     Available categoria_1:`, uniqueCategories)
+            console.log(`     Available sub_categoria:`, uniqueSubCategories)
+          }
+        }
 
         const costoOperativo = Math.abs(reportData
-          .filter(row => row.tipo === "Egresos" && row.clasificacion === "Costo Operativo")
+          .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo")
           .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
 
         if (trendsMap.has(periodKey)) {
@@ -209,7 +253,25 @@ export default function HistoricalTrendsPage() {
         bajioIngresos: data.bajioIngresos / data.count,
         viaductoIngresos: data.viaductoIngresos / data.count,
         itisaIngresos: data.itisaIngresos / data.count,
-        materiaPrimaRatio: data.ingresos > 0 ? (data.materiaPrima / data.ingresos) * 100 : 0,
+        // FIXED: Calculate efficiency vs benchmark instead of just participation
+        materiaPrimaRatio: data.ingresos > 0 ? 
+          (() => {
+            const actualPercentage = (data.materiaPrima / data.ingresos) * 100
+            const benchmark = 47.5 // Target: 45-50% average
+            const efficiency = ((benchmark - actualPercentage) / benchmark) * 100 // Efficiency vs target
+            
+            // DEBUG: Log calculation for first period
+            if (period === Array.from(trendsMap.keys()).sort()[0]) {
+              console.log(`🧮 Efficiency Calculation for ${period}:`)
+              console.log(`  💰 Ingresos: ${data.ingresos.toLocaleString()}`)
+              console.log(`  🏭 Materias Primas: ${data.materiaPrima.toLocaleString()}`)
+              console.log(`  📊 Actual %: ${actualPercentage.toFixed(2)}%`)
+              console.log(`  🎯 Benchmark: ${benchmark}%`)
+              console.log(`  ⚡ Efficiency: ${efficiency.toFixed(2)}%`)
+            }
+            
+            return efficiency
+          })() : 0,
         costoOperativoRatio: data.ingresos > 0 ? (data.costoOperativo / data.ingresos) * 100 : 0,
         // Accumulated values will be calculated below
         ingresosAcumulados: 0,
@@ -316,21 +378,27 @@ export default function HistoricalTrendsPage() {
           .filter(row => row.tipo === "Ingresos")
           .reduce((sum, row) => sum + (row.monto || 0), 0)
 
+        // FIXED: Using correct managerial categorization framework + raw material categories
         const materiaPrima = Math.abs(reportData
-          .filter(row => row.tipo === "Egresos" && row.clasificacion === "Materia prima")
+          .filter(row => row.tipo === "Egresos" && (
+            row.sub_categoria === "Costo Materias Primas" ||
+            ["Cemento", "Agregado Grueso", "Agregado Fino", "Aditivos", "Agua", "Adiciones especiales", "Adiciones Especiales"].includes(row.categoria_1 || "")
+          ))
           .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
 
         const costoOperativo = Math.abs(reportData
-          .filter(row => row.tipo === "Egresos" && row.clasificacion === "Costo Operativo")
+          .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo")
           .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
 
-        const costoFijo = Math.abs(reportData
-          .filter(row => row.tipo === "Egresos" && row.clasificacion === "Costo Fijo")
+        // Note: costoFijo is part of costoOperativo in our managerial framework, so we set it to 0 for compatibility
+        const costoFijo = 0
+        
+        // Other costs are calculated as remainder
+        const totalEgresos = Math.abs(reportData
+          .filter(row => row.tipo === "Egresos")
           .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
 
-        const otros = Math.abs(reportData
-          .filter(row => row.tipo === "Egresos" && !["Materia prima", "Costo Operativo", "Costo Fijo"].includes(row.clasificacion))
-          .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
+        const otros = totalEgresos - materiaPrima - costoOperativo
 
         if (trendsMap.has(periodKey)) {
           const existing = trendsMap.get(periodKey)!
@@ -419,9 +487,9 @@ export default function HistoricalTrendsPage() {
       {
         title: "Eficiencia Materias Primas",
         value: `${latest.materiaPrimaRatio.toFixed(1)}%`,
-        change: `${latest.materiaPrimaRatio <= 45 ? 'Óptimo' : latest.materiaPrimaRatio <= 50 ? 'Bueno' : 'Alto'}`,
-        trend: latest.materiaPrimaRatio <= 45 ? "up" : "down",
-        icon: Activity
+        change: `${latest.materiaPrimaRatio > 5 ? 'Excelente' : latest.materiaPrimaRatio > 0 ? 'Bueno' : latest.materiaPrimaRatio > -5 ? 'Regular' : 'Crítico'}`,
+        trend: latest.materiaPrimaRatio > 0 ? "up" : "down",
+        icon: Factory
       },
       {
         title: "Ingresos Totales Período",
@@ -493,7 +561,7 @@ export default function HistoricalTrendsPage() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando tendencias históricas...</p>
+            <p className="text-muted-foreground">Cargando tendencias históricas...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -506,8 +574,8 @@ export default function HistoricalTrendsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Tendencias Históricas</h1>
-            <p className="text-gray-600 mt-1">Análisis de evolución financiera y operativa</p>
+            <h1 className="text-3xl font-bold text-foreground">Tendencias Históricas</h1>
+            <p className="text-muted-foreground mt-1">Análisis de evolución financiera y operativa</p>
           </div>
           <div className="flex gap-4 mt-4 sm:mt-0">
             <Select value={selectedView} onValueChange={(value: "monthly" | "quarterly" | "yearly") => setSelectedView(value)}>
@@ -545,28 +613,76 @@ export default function HistoricalTrendsPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {kpis.map((kpi, index) => {
-            const TrendIcon = getTrendIcon(kpi.trend)
-            const IconComponent = kpi.icon
-            
-            return (
-              <Card key={index} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <IconComponent className="h-4 w-4 text-gray-500" />
-                    <TrendIcon className={`h-4 w-4 ${getTrendColor(kpi.trend)}`} />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">{kpi.title}</p>
-                    <p className="text-lg font-bold text-gray-900">{kpi.value}</p>
-                    <p className={`text-xs ${getTrendColor(kpi.trend)}`}>{kpi.change}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+        <TooltipProvider>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            {kpis.map((kpi, index) => {
+              const TrendIcon = getTrendIcon(kpi.trend)
+              const IconComponent = kpi.icon
+              
+              // Special handling for Raw Materials Efficiency KPI
+              if (kpi.title === "Eficiencia Materias Primas") {
+                return (
+                  <UITooltip key={index}>
+                    <TooltipTrigger asChild>
+                      <Card className="hover:shadow-md transition-shadow cursor-help">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-1">
+                              <IconComponent className="h-4 w-4 text-gray-500" />
+                              <HelpCircle className="h-3 w-3 text-gray-400" />
+                            </div>
+                            <TrendIcon className={`h-4 w-4 ${getTrendColor(kpi.trend)}`} />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{kpi.title}</p>
+                            <p className="text-lg font-bold text-foreground">{kpi.value}</p>
+                            <p className={`text-xs ${getTrendColor(kpi.trend)}`}>{kpi.change}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm">
+                      <div className="space-y-2">
+                        <p className="font-semibold">Eficiencia de Materias Primas</p>
+                        <p className="text-sm">
+                          Este KPI mide qué tan eficiente es el manejo de costos de materias primas vs. un objetivo del <strong>47.5%</strong> de los ingresos.
+                        </p>
+                        <div className="space-y-1 text-sm">
+                          <p><strong>Materias Primas incluye:</strong></p>
+                          <p>• Cemento, Agregados, Aditivos</p>
+                          <p>• Agua, Adiciones especiales</p>
+                        </div>
+                        <div className="space-y-1 text-sm">
+                          <p><strong>Interpretación:</strong></p>
+                          <p>• <span className="text-green-600">Positivo:</span> Mejor que objetivo</p>
+                          <p>• <span className="text-red-600">Negativo:</span> Peor que objetivo</p>
+                          <p>• <span className="text-blue-600">100%:</span> Posible falta de datos</p>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </UITooltip>
+                )
+              }
+              
+              // Regular KPI card
+              return (
+                <Card key={index} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <IconComponent className="h-4 w-4 text-gray-500" />
+                      <TrendIcon className={`h-4 w-4 ${getTrendColor(kpi.trend)}`} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{kpi.title}</p>
+                      <p className="text-lg font-bold text-foreground">{kpi.value}</p>
+                      <p className={`text-xs ${getTrendColor(kpi.trend)}`}>{kpi.change}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </TooltipProvider>
 
         {/* Main Analysis Chart */}
         <Card className="shadow-lg">
@@ -810,8 +926,8 @@ export default function HistoricalTrendsPage() {
               <div className="h-80 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                 <div className="text-center">
                   <Factory className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Datos de Volúmenes Próximamente</h3>
-                  <p className="text-gray-600 max-w-sm">
+                  <h3 className="text-lg font-medium text-foreground mb-2">Datos de Volúmenes Próximamente</h3>
+                  <p className="text-muted-foreground max-w-sm">
                     Esta sección mostrará el análisis de volúmenes de concreto una vez que los datos estén disponibles.
                   </p>
                   <div className="mt-4 p-3 bg-blue-50 rounded-lg">

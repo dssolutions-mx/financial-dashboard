@@ -1,13 +1,13 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { DashboardLayout } from "@/components/dashboard-layout"
+import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
-import { SupabaseStorageService, FinancialReport } from "@/lib/supabase-storage"
+import { SupabaseStorageService, FinancialReport } from "@/lib/supabase/storage"
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, RadialBarChart, RadialBar, LineChart, Line } from "recharts"
 import { 
   Target, 
@@ -22,7 +22,8 @@ import {
   Building2,
   ArrowUpRight,
   ArrowDownRight,
-  Minus
+  Minus,
+  Calculator
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -94,7 +95,11 @@ export default function KPIsPage() {
   const [expenseBreakdown, setExpenseBreakdown] = useState<CategoryBreakdown[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState<string>("3") // months
   const [reports, setReports] = useState<FinancialReport[]>([])
+  const [volumeData, setVolumeData] = useState<any[]>([])
+  const [cashSalesData, setCashSalesData] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [viewMode, setViewMode] = useState<"unit" | "participation">("participation") // Toggle between unit costs and participation
+  const [hasVolumeData, setHasVolumeData] = useState(false)
   
   const storageService = new SupabaseStorageService()
   const { toast } = useToast()
@@ -102,6 +107,13 @@ export default function KPIsPage() {
   useEffect(() => {
     loadKPIData()
   }, [selectedPeriod])
+
+  useEffect(() => {
+    // Recalculate KPIs when view mode changes (only if data is already loaded)
+    if (kpiMetrics.length > 0 && reports.length > 0) {
+      loadKPIData()
+    }
+  }, [viewMode])
 
   const loadKPIData = async () => {
     try {
@@ -130,12 +142,36 @@ export default function KPIsPage() {
         allData.push({ report, data: reportData })
       }
 
+      // Try to find a period with volume data in the selected reports
+      let volumeData: any[] = []
+      let cashSalesData: any[] = []
+      let foundVolumeData = false
+
+      for (const report of reportsToAnalyze) {
+        const [volData, cashData] = await Promise.all([
+          storageService.getPlantVolumes(report.month, report.year),
+          storageService.getCashSales(report.month, report.year)
+        ])
+        
+        if (volData.length > 0 || cashData.length > 0) {
+          volumeData = volData
+          cashSalesData = cashData
+          foundVolumeData = true
+          break
+        }
+      }
+
+      setVolumeData(volumeData)
+      setCashSalesData(cashSalesData)
+      setHasVolumeData(foundVolumeData)
+
       // Aggregate data from all selected reports
       const aggregatedData = aggregateReportsData(allData)
 
-      // Calculate KPIs from aggregated data
+      // Calculate KPIs from aggregated data with volume integration
       const latestReportData = allData[0]
-      const metrics = calculateKPIMetrics(aggregatedData, latestReportData.report, allData)
+      const currentViewMode = foundVolumeData ? viewMode : "participation"
+      const metrics = calculateKPIMetrics(aggregatedData, latestReportData.report, allData, volumeData, cashSalesData, currentViewMode)
       setKpiMetrics(metrics)
 
       // Calculate plant performance using aggregated data
@@ -185,7 +221,7 @@ export default function KPIsPage() {
     return Object.values(aggregated)
   }
 
-  const calculateKPIMetrics = (data: any[], report: FinancialReport, allData: any[]): KPIMetric[] => {
+  const calculateKPIMetrics = (data: any[], report: FinancialReport, allData: any[], volumeData: any[] = [], cashSalesData: any[] = [], viewMode: "unit" | "participation" = "participation"): KPIMetric[] => {
     const ingresos = data
       .filter(row => row.tipo === "Ingresos")
       .reduce((sum, row) => sum + (row.monto || 0), 0)
@@ -194,8 +230,35 @@ export default function KPIsPage() {
       .filter(row => row.tipo === "Egresos")
       .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
 
-    const utilidad = ingresos - egresos
-    const margenUtilidad = ingresos > 0 ? (utilidad / ingresos) * 100 : 0
+    // Calculate total volume from both sources
+    const totalVolumeConcreto = volumeData
+      .filter(vol => vol.category === "Ventas Concreto")
+      .reduce((sum, vol) => sum + vol.volume_m3, 0)
+    
+    const totalVolumeBombeo = volumeData
+      .filter(vol => vol.category === "Ventas Bombeo")
+      .reduce((sum, vol) => sum + vol.volume_m3, 0)
+
+    const totalCashVolumeConcreto = cashSalesData
+      .filter(sale => sale.category === "Ventas Concreto Cash")
+      .reduce((sum, sale) => sum + sale.volume_m3, 0)
+
+    const totalCashVolumeBombeo = cashSalesData
+      .filter(sale => sale.category === "Ventas Bombeo Cash")
+      .reduce((sum, sale) => sum + sale.volume_m3, 0)
+
+    const totalVolume = totalVolumeConcreto + totalVolumeBombeo + totalCashVolumeConcreto + totalCashVolumeBombeo
+    
+    // Calculate cash sales revenue
+    const cashSalesRevenue = cashSalesData.reduce((sum, sale) => sum + sale.amount_mxn, 0)
+    const totalIngresos = ingresos + cashSalesRevenue
+
+    const utilidad = totalIngresos - egresos
+    const margenUtilidad = totalIngresos > 0 ? (utilidad / totalIngresos) * 100 : 0
+    
+    // Para vista de participación, también calcular utilidad basada solo en ingresos fiscales
+    const utilidadFiscal = ingresos - egresos
+    const margenUtilidadFiscal = ingresos > 0 ? (utilidadFiscal / ingresos) * 100 : 0
 
     // Calculate trends from multiple periods
     let ingresosChange = 0
@@ -222,94 +285,224 @@ export default function KPIsPage() {
       margenChange = margenUtilidad - prevMargen
     }
 
-    // Calculate efficiency metrics
-    const plantas = [...new Set(data.map(row => row.planta).filter(Boolean))]
-    const eficienciaPromedio = plantas.length > 0 ? 
-      plantas.reduce((sum, planta) => {
-        const plantaData = data.filter(row => row.planta === planta)
-        const plantaIngresos = plantaData
-          .filter(row => row.tipo === "Ingresos")
-          .reduce((sum, row) => sum + (row.monto || 0), 0)
-        const plantaEgresos = Math.abs(plantaData
-          .filter(row => row.tipo === "Egresos")
-          .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
-        return sum + (plantaIngresos > 0 ? (plantaIngresos - plantaEgresos) / plantaIngresos : 0)
-      }, 0) / plantas.length * 100 : 0
+    // Calculate costs by managerial categories (respecting structure)
+    const costoTransporte = data
+      .filter(row => row.tipo === "Egresos" && row.clasificacion === "Costo transporte concreto")
+      .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
 
-    // Calculate cost efficiency
-    const costoEficiencia = egresos > 0 ? (ingresos / egresos) : 0
+    const costoPersonalFijo = data
+      .filter(row => row.tipo === "Egresos" && 
+        (row.categoria_1?.includes("Nómina Producción") || 
+         row.categoria_1?.includes("Nómina Administrativos")))
+      .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
 
-    return [
-      {
-        id: "ingresos",
-        title: "Ingresos Totales",
-        value: formatCompactCurrency(ingresos),
-        unit: "",
-        change: `${ingresosChange >= 0 ? '+' : ''}${ingresosChange.toFixed(1)}%`,
-        trend: ingresosChange > 0 ? "up" : ingresosChange < 0 ? "down" : "neutral",
-        status: ingresosChange > 5 ? "excellent" : ingresosChange > 0 ? "good" : ingresosChange > -5 ? "warning" : "critical",
-        description: `Ingresos del período actual vs anterior`,
-        icon: DollarSign
-      },
-      {
-        id: "egresos",
-        title: "Egresos Totales", 
-        value: formatCompactCurrency(egresos),
-        unit: "",
-        change: `${egresoChange >= 0 ? '+' : ''}${egresoChange.toFixed(1)}%`,
-        trend: egresoChange < 0 ? "up" : egresoChange > 0 ? "down" : "neutral",
-        status: egresoChange < -5 ? "excellent" : egresoChange < 0 ? "good" : egresoChange < 5 ? "warning" : "critical",
-        description: `Control de gastos vs período anterior`,
-        icon: TrendingDown
-      },
-      {
-        id: "utilidad",
-        title: "Utilidad Neta",
-        value: formatCompactCurrency(utilidad),
-        unit: "",
-        change: `${utilidadChange >= 0 ? '+' : ''}${utilidadChange.toFixed(1)}%`,
-        trend: utilidadChange > 0 ? "up" : utilidadChange < 0 ? "down" : "neutral", 
-        status: utilidadChange > 10 ? "excellent" : utilidadChange > 0 ? "good" : utilidadChange > -10 ? "warning" : "critical",
-        description: `Rentabilidad neta del período`,
-        icon: TrendingUp
-      },
-      {
-        id: "margen",
-        title: "Margen de Utilidad",
-        value: margenUtilidad.toFixed(1),
-        unit: "%",
-        change: `${margenChange >= 0 ? '+' : ''}${margenChange.toFixed(1)}pp`,
-        trend: margenChange > 0 ? "up" : margenChange < 0 ? "down" : "neutral",
-        status: margenUtilidad > 20 ? "excellent" : margenUtilidad > 10 ? "good" : margenUtilidad > 5 ? "warning" : "critical",
-        description: `Eficiencia en generación de utilidades`,
-        icon: Percent,
-        target: 15
-      },
-      {
-        id: "eficiencia",
-        title: "Eficiencia Operativa",
-        value: eficienciaPromedio.toFixed(1),
-        unit: "%", 
-        change: "N/A",
-        trend: "neutral",
-        status: eficienciaPromedio > 15 ? "excellent" : eficienciaPromedio > 10 ? "good" : eficienciaPromedio > 5 ? "warning" : "critical",
-        description: `Promedio de eficiencia por planta`,
-        icon: Activity,
-        target: 12
-      },
-      {
-        id: "costo_eficiencia",
-        title: "Eficiencia de Costos",
-        value: costoEficiencia.toFixed(2),
-        unit: "x",
-        change: "N/A", 
-        trend: "neutral",
-        status: costoEficiencia > 1.5 ? "excellent" : costoEficiencia > 1.2 ? "good" : costoEficiencia > 1.0 ? "warning" : "critical",
-        description: `Ratio ingresos/egresos`,
-        icon: Target,
-        target: 1.3
-      }
-    ]
+    const costoMateriasPrimas = data
+      .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo Materias Primas")
+      .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
+
+    const costoCemento = data
+      .filter(row => row.tipo === "Egresos" && row.categoria_1 === "Cemento")
+      .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
+
+    // Calculate participation as percentage of total costs
+    const participacionTransporte = egresos > 0 ? (costoTransporte / egresos) * 100 : 0
+    const participacionPersonalFijo = egresos > 0 ? (costoPersonalFijo / egresos) * 100 : 0
+    const participacionMateriasPrimas = egresos > 0 ? (costoMateriasPrimas / egresos) * 100 : 0
+    const participacionCemento = costoMateriasPrimas > 0 ? (costoCemento / costoMateriasPrimas) * 100 : 0
+
+    // Calculate unit costs (costo unitario)
+    const costoUnitarioTransporte = totalVolume > 0 ? costoTransporte / totalVolume : 0
+    const costoUnitarioMateriasPrimas = totalVolume > 0 ? costoMateriasPrimas / totalVolume : 0
+    const costoUnitarioTotal = totalVolume > 0 ? egresos / totalVolume : 0
+    const eficienciaVentas = totalVolume > 0 ? totalIngresos / totalVolume : 0
+
+    // Return different metrics based on view mode
+    if (viewMode === "unit" && totalVolume > 0) {
+      return [
+        {
+          id: "ingresos",
+          title: "Ingresos Totales",
+          value: formatCompactCurrency(totalIngresos),
+          unit: "",
+          change: `${ingresosChange >= 0 ? '+' : ''}${ingresosChange.toFixed(1)}%`,
+          trend: ingresosChange > 0 ? "up" : ingresosChange < 0 ? "down" : "neutral",
+          status: ingresosChange > 5 ? "excellent" : ingresosChange > 0 ? "good" : ingresosChange > -5 ? "warning" : "critical",
+          description: `Ingresos fiscales + ventas en efectivo`,
+          icon: DollarSign
+        },
+        {
+          id: "volumen_total",
+          title: "Volumen Total",
+          value: totalVolume.toFixed(1),
+          unit: "m³",
+          change: "N/A",
+          trend: "neutral",
+          status: totalVolume > 0 ? "excellent" : "critical",
+          description: `Concreto + Bombeo (fiscal + efectivo)`,
+          icon: Activity
+        },
+        {
+          id: "eficiencia_ventas",
+          title: "Eficiencia de Ventas",
+          value: formatUnitCurrency(eficienciaVentas),
+          unit: "/m³",
+          change: "N/A",
+          trend: "neutral",
+          status: eficienciaVentas > 2000 ? "excellent" : eficienciaVentas > 1800 ? "good" : eficienciaVentas > 1600 ? "warning" : "critical",
+          description: `Ingresos por metro cúbico`,
+          icon: TrendingUp
+        },
+        {
+          id: "costo_unitario_total",
+          title: "Costo Unitario Total",
+          value: formatUnitCurrency(costoUnitarioTotal),
+          unit: "/m³",
+          change: "N/A",
+          trend: "neutral",
+          status: costoUnitarioTotal < 1400 ? "excellent" : costoUnitarioTotal < 1600 ? "good" : costoUnitarioTotal < 1800 ? "warning" : "critical",
+          description: `Costo total por metro cúbico`,
+          icon: DollarSign
+        },
+        {
+          id: "margen",
+          title: "Margen de Utilidad",
+          value: margenUtilidad.toFixed(1),
+          unit: "%",
+          change: `${margenChange >= 0 ? '+' : ''}${margenChange.toFixed(1)}pp`,
+          trend: margenChange > 0 ? "up" : margenChange < 0 ? "down" : "neutral",
+          status: margenUtilidad > 20 ? "excellent" : margenUtilidad > 10 ? "good" : margenUtilidad > 5 ? "warning" : "critical",
+          description: `Eficiencia en generación de utilidades`,
+          icon: Percent,
+          target: 15
+        },
+        {
+          id: "costo_unitario_transporte",
+          title: "Costo Unitario Transporte",
+          value: formatUnitCurrency(costoUnitarioTransporte),
+          unit: "/m³",
+          change: "N/A",
+          trend: "neutral",
+          status: costoUnitarioTransporte < 300 ? "excellent" : costoUnitarioTransporte < 400 ? "good" : costoUnitarioTransporte < 500 ? "warning" : "critical",
+          description: `Costo de transporte por metro cúbico`,
+          icon: Activity
+        },
+        {
+          id: "costo_unitario_materias_primas",
+          title: "Costo Unitario Mat. Primas",
+          value: formatUnitCurrency(costoUnitarioMateriasPrimas),
+          unit: "/m³",
+          change: "N/A",
+          trend: "neutral",
+          status: costoUnitarioMateriasPrimas < 800 ? "excellent" : costoUnitarioMateriasPrimas < 900 ? "good" : costoUnitarioMateriasPrimas < 1000 ? "warning" : "critical",
+          description: `Costo de materias primas por metro cúbico`,
+          icon: Factory
+        },
+        {
+          id: "participacion_cemento",
+          title: "Participación Cemento",
+          value: participacionCemento.toFixed(1),
+          unit: "%",
+          change: "N/A", 
+          trend: "neutral",
+          status: participacionCemento < 80 ? "excellent" : participacionCemento < 85 ? "good" : participacionCemento < 90 ? "warning" : "critical",
+          description: `En materias primas`,
+          icon: Building2
+        }
+      ]
+    } else {
+      // Participation mode (default when no volume data)
+      return [
+        {
+          id: "ingresos",
+          title: "Ingresos Totales",
+          value: formatCompactCurrency(totalIngresos),
+          unit: "",
+          change: `${ingresosChange >= 0 ? '+' : ''}${ingresosChange.toFixed(1)}%`,
+          trend: ingresosChange > 0 ? "up" : ingresosChange < 0 ? "down" : "neutral",
+          status: ingresosChange > 5 ? "excellent" : ingresosChange > 0 ? "good" : ingresosChange > -5 ? "warning" : "critical",
+          description: `Ingresos fiscales + ventas en efectivo`,
+          icon: DollarSign
+        },
+        {
+          id: "egresos",
+          title: "Egresos Totales", 
+          value: formatCompactCurrency(egresos),
+          unit: "",
+          change: `${egresoChange >= 0 ? '+' : ''}${egresoChange.toFixed(1)}%`,
+          trend: egresoChange < 0 ? "up" : egresoChange > 0 ? "down" : "neutral",
+          status: egresoChange < -5 ? "excellent" : egresoChange < 0 ? "good" : egresoChange < 5 ? "warning" : "critical",
+          description: `Control de gastos vs período anterior`,
+          icon: TrendingDown
+        },
+        {
+          id: "utilidad",
+          title: "Utilidad Neta",
+          value: formatCompactCurrency(utilidad),
+          unit: "",
+          change: `${utilidadChange >= 0 ? '+' : ''}${utilidadChange.toFixed(1)}%`,
+          trend: utilidadChange > 0 ? "up" : utilidadChange < 0 ? "down" : "neutral", 
+          status: utilidadChange > 10 ? "excellent" : utilidadChange > 0 ? "good" : utilidadChange > -10 ? "warning" : "critical",
+          description: `Rentabilidad neta total (fiscal + efectivo)`,
+          icon: TrendingUp
+        },
+        {
+          id: "margen",
+          title: "Margen de Utilidad",
+          value: margenUtilidad.toFixed(1),
+          unit: "%",
+          change: `${margenChange >= 0 ? '+' : ''}${margenChange.toFixed(1)}pp`,
+          trend: margenChange > 0 ? "up" : margenChange < 0 ? "down" : "neutral",
+          status: margenUtilidad > 20 ? "excellent" : margenUtilidad > 10 ? "good" : margenUtilidad > 5 ? "warning" : "critical",
+          description: `Eficiencia sobre ingresos totales`,
+          icon: Percent,
+          target: 15
+        },
+        {
+          id: "costo_transporte",
+          title: "Costo de Transporte",
+          value: participacionTransporte.toFixed(1),
+          unit: "%", 
+          change: "N/A",
+          trend: "neutral",
+          status: participacionTransporte < 20 ? "excellent" : participacionTransporte < 25 ? "good" : participacionTransporte < 30 ? "warning" : "critical",
+          description: `Participación en egresos totales`,
+          icon: Activity
+        },
+        {
+          id: "costo_personal",
+          title: "Costo Personal Fijo",
+          value: participacionPersonalFijo.toFixed(1),
+          unit: "%",
+          change: "N/A", 
+          trend: "neutral",
+          status: participacionPersonalFijo < 15 ? "excellent" : participacionPersonalFijo < 20 ? "good" : participacionPersonalFijo < 25 ? "warning" : "critical",
+          description: `Participación en egresos totales`,
+          icon: Target
+        },
+        {
+          id: "costo_materias_primas",
+          title: "Costo Materias Primas",
+          value: participacionMateriasPrimas.toFixed(1),
+          unit: "%",
+          change: "N/A", 
+          trend: "neutral",
+          status: participacionMateriasPrimas < 50 ? "excellent" : participacionMateriasPrimas < 55 ? "good" : participacionMateriasPrimas < 60 ? "warning" : "critical",
+          description: `Participación en egresos totales`,
+          icon: Factory
+        },
+        {
+          id: "participacion_cemento",
+          title: "Participación Cemento",
+          value: participacionCemento.toFixed(1),
+          unit: "%",
+          change: "N/A", 
+          trend: "neutral",
+          status: participacionCemento < 80 ? "excellent" : participacionCemento < 85 ? "good" : participacionCemento < 90 ? "warning" : "critical",
+          description: `En materias primas`,
+          icon: Building2
+        }
+      ]
+    }
   }
 
   const calculatePlantPerformance = (data: any[]): PlantPerformance[] => {
@@ -401,25 +594,70 @@ export default function KPIsPage() {
       }))
       .sort((a, b) => b.value - a.value)
 
-    // Expense breakdown by categoria_1
+    // Expense breakdown respecting managerial structure
     const expenseData = data.filter((row: any) => row.tipo === "Egresos")
-    const expenseByCategory = expenseData.reduce((acc: Record<string, number>, row: any) => {
-      const category = row.categoria_1 || "Sin Categoría"
-      acc[category] = (acc[category] || 0) + Math.abs(row.monto || 0)
+    
+    // Level 1: By Sub categoria (as management sees it)
+    const expenseBySubCategory = expenseData.reduce((acc: Record<string, number>, row: any) => {
+      const subCategory = row.sub_categoria || "Sin Sub Categoría"
+      acc[subCategory] = (acc[subCategory] || 0) + Math.abs(row.monto || 0)
       return acc
     }, {} as Record<string, number>)
 
-    const totalExpense = Object.values(expenseByCategory).reduce((sum: number, val: number) => sum + val, 0)
-    const expenseColors = ["#ef4444", "#dc2626", "#b91c1c", "#991b1b", "#7f1d1d"]
-    
-    const expense = Object.entries(expenseByCategory)
-      .map(([name, value]: [string, number], index: number) => ({
-        name,
-        value,
-        percentage: totalExpense > 0 ? (value / totalExpense) * 100 : 0,
-        color: expenseColors[index % expenseColors.length]
-      }))
-      .sort((a, b) => b.value - a.value)
+    // Level 2: For "Costo operativo", break down by Clasificacion
+    const costoOperativoData = expenseData.filter((row: any) => row.sub_categoria === "Costo operativo")
+    const costoOperativoByClasificacion = costoOperativoData.reduce((acc: Record<string, number>, row: any) => {
+      const clasificacion = row.clasificacion || "Sin Clasificación"
+      acc[clasificacion] = (acc[clasificacion] || 0) + Math.abs(row.monto || 0)
+      return acc
+    }, {} as Record<string, number>)
+
+    // Create enhanced expense breakdown following managerial structure
+    const enhancedExpenseData = []
+    const totalExpense = Object.values(expenseBySubCategory).reduce((sum: number, val: number) => sum + val, 0)
+
+    // Add "Costo Materias Primas" as main category
+    if (expenseBySubCategory["Costo Materias Primas"]) {
+      enhancedExpenseData.push({
+        name: "Costo Materias Primas",
+        value: expenseBySubCategory["Costo Materias Primas"],
+        percentage: totalExpense > 0 ? (expenseBySubCategory["Costo Materias Primas"] / totalExpense) * 100 : 0,
+        color: "#ef4444"
+      })
+    }
+
+    // Add "Costo operativo" sub-categories
+    if (costoOperativoByClasificacion["Costo transporte concreto"]) {
+      enhancedExpenseData.push({
+        name: "Costo Transporte Concreto",
+        value: costoOperativoByClasificacion["Costo transporte concreto"],
+        percentage: totalExpense > 0 ? (costoOperativoByClasificacion["Costo transporte concreto"] / totalExpense) * 100 : 0,
+        color: "#dc2626"
+      })
+    }
+
+    if (costoOperativoByClasificacion["Costo Fijo"]) {
+      enhancedExpenseData.push({
+        name: "Costo Fijo",
+        value: costoOperativoByClasificacion["Costo Fijo"],
+        percentage: totalExpense > 0 ? (costoOperativoByClasificacion["Costo Fijo"] / totalExpense) * 100 : 0,
+        color: "#b91c1c"
+      })
+    }
+
+    // Add any remaining sub-categories
+    Object.entries(expenseBySubCategory).forEach(([subCat, value]) => {
+      if (subCat !== "Costo Materias Primas" && subCat !== "Costo operativo") {
+        enhancedExpenseData.push({
+          name: subCat,
+          value: value,
+          percentage: totalExpense > 0 ? (value / totalExpense) * 100 : 0,
+          color: "#991b1b"
+        })
+      }
+    })
+
+    const expense = enhancedExpenseData.sort((a, b) => b.value - a.value)
 
     return { income, expense }
   }
@@ -442,6 +680,15 @@ export default function KPIsPage() {
       return `$${(amount / 1000).toFixed(0)}K`
     }
     return formatCurrency(amount)
+  }
+
+  const formatUnitCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)
   }
 
   // Add new function for axis formatting
@@ -498,7 +745,7 @@ export default function KPIsPage() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando KPIs...</p>
+            <p className="text-muted-foreground">Cargando KPIs...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -511,10 +758,30 @@ export default function KPIsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">KPIs y Métricas</h1>
-            <p className="text-gray-600 mt-1">Indicadores clave de rendimiento y análisis financiero</p>
+            <h1 className="text-3xl font-bold text-foreground">KPIs y Métricas</h1>
+            <p className="text-muted-foreground mt-1">Indicadores clave de rendimiento y análisis financiero</p>
           </div>
           <div className="flex gap-4 mt-4 sm:mt-0">
+            {hasVolumeData && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={viewMode === "participation" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("participation")}
+                >
+                  <Percent className="h-4 w-4 mr-1" />
+                  Participación
+                </Button>
+                <Button
+                  variant={viewMode === "unit" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("unit")}
+                >
+                  <Calculator className="h-4 w-4 mr-1" />
+                  Unitarios
+                </Button>
+              </div>
+            )}
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Seleccionar período" />
@@ -542,7 +809,7 @@ export default function KPIsPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <MetricIcon className="h-5 w-5 text-gray-600" />
-                      <CardTitle className="text-sm font-medium text-gray-600">{metric.title}</CardTitle>
+                      <CardTitle className="text-sm font-medium text-muted-foreground">{metric.title}</CardTitle>
                     </div>
                     <StatusIcon className={`h-4 w-4 ${getStatusColor(metric.status).replace('bg-', 'text-')}`} />
                   </div>
@@ -550,9 +817,9 @@ export default function KPIsPage() {
                 <CardContent className="pt-0">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-2xl font-bold text-gray-900">
+                      <div className="text-2xl font-bold text-foreground">
                         {metric.value}
-                        <span className="text-sm font-normal text-gray-500 ml-1">{metric.unit}</span>
+                        <span className="text-sm font-normal text-muted-foreground ml-1">{metric.unit}</span>
                       </div>
                       <div className={`flex items-center mt-1 ${getTrendColor(metric.trend)}`}>
                         <TrendIcon className="h-3 w-3 mr-1" />
@@ -561,7 +828,7 @@ export default function KPIsPage() {
                     </div>
                     {metric.target && (
                       <div className="text-right">
-                        <div className="text-xs text-gray-500">Meta: {metric.target}{metric.unit}</div>
+                        <div className="text-xs text-muted-foreground">Meta: {metric.target}{metric.unit}</div>
                         <Progress 
                           value={Math.min(100, (parseFloat(metric.value.toString()) / metric.target) * 100)} 
                           className="w-16 h-2 mt-1"
@@ -569,7 +836,7 @@ export default function KPIsPage() {
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">{metric.description}</p>
+                  <p className="text-xs text-muted-foreground mt-2">{metric.description}</p>
                 </CardContent>
               </Card>
             )
@@ -600,11 +867,12 @@ export default function KPIsPage() {
                     <Tooltip 
                       formatter={(value: number) => [formatCompactCurrency(value), '']}
                       contentStyle={{
-                        backgroundColor: '#f8fafc',
-                        border: '1px solid #e2e8f0',
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
                         borderRadius: '8px',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        color: 'hsl(var(--foreground))'
                       }}
                     />
                     <Legend wrapperStyle={{ fontSize: '14px' }} />
@@ -630,37 +898,37 @@ export default function KPIsPage() {
             <CardContent>
               <div className="space-y-3">
                 {plantPerformance.slice(0, 6).map((plant, index) => (
-                  <div key={plant.planta} className="p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <div key={plant.planta} className="p-4 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors">
                     {/* Header row with plant info */}
                     <div className="flex items-center space-x-4 mb-3">
-                      <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-bold text-green-800">
+                      <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-green-800 dark:text-green-200">
                           {plant.planta.includes('SIN') ? 'SC' : plant.planta}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-gray-900 text-lg truncate">
+                        <div className="font-semibold text-foreground text-lg truncate">
                           {plant.planta === 'SIN CLASIFICACION' ? 'SIN CLASIFICACIÓN' : plant.planta}
                         </div>
-                        <div className="text-sm text-gray-600 font-medium">{plant.businessUnit}</div>
+                        <div className="text-sm text-muted-foreground font-medium">{plant.businessUnit}</div>
                       </div>
                     </div>
                     
                     {/* Metrics grid */}
                     <div className="grid grid-cols-3 gap-4">
                       <div className="text-center">
-                        <div className="font-bold text-gray-900 text-lg">{formatCompactCurrency(plant.ingresos)}</div>
-                        <div className="text-xs text-gray-500 font-medium">{plant.participacion.toFixed(1)}% participación</div>
+                        <div className="font-bold text-foreground text-lg">{formatCompactCurrency(plant.ingresos)}</div>
+                        <div className="text-xs text-muted-foreground font-medium">{plant.participacion.toFixed(1)}% participación</div>
                       </div>
                       <div className="text-center">
                         <div className={`font-bold text-lg ${plant.margen >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {plant.margen.toFixed(1)}%
                         </div>
-                        <div className="text-xs text-gray-500 font-medium">margen</div>
+                        <div className="text-xs text-muted-foreground font-medium">margen</div>
                       </div>
                       <div className="text-center">
-                        <div className="font-bold text-gray-900 text-lg">{plant.eficiencia.toFixed(1)}%</div>
-                        <div className="text-xs text-gray-500 font-medium">eficiencia</div>
+                        <div className="font-bold text-foreground text-lg">{plant.eficiencia.toFixed(1)}%</div>
+                        <div className="text-xs text-muted-foreground font-medium">eficiencia</div>
                       </div>
                     </div>
                   </div>
@@ -703,11 +971,12 @@ export default function KPIsPage() {
                     <Tooltip 
                       formatter={(value: number) => [formatCompactCurrency(value), '']}
                       contentStyle={{
-                        backgroundColor: '#f8fafc',
-                        border: '1px solid #e2e8f0',
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
                         borderRadius: '8px',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        color: 'hsl(var(--foreground))'
                       }}
                     />
                   </PieChart>
@@ -715,17 +984,17 @@ export default function KPIsPage() {
               </div>
               <div className="mt-6 space-y-3">
                 {incomeBreakdown.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center space-x-3">
                       <div
                         className="w-4 h-4 rounded-full"
                         style={{ backgroundColor: item.color }}
                       />
-                      <span className="text-sm font-semibold text-gray-700">{item.name}</span>
+                      <span className="text-sm font-semibold text-foreground">{item.name}</span>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-bold text-gray-900">{formatCompactCurrency(item.value)}</div>
-                      <div className="text-xs text-gray-500 font-medium">{item.percentage.toFixed(1)}%</div>
+                      <div className="text-sm font-bold text-foreground">{formatCompactCurrency(item.value)}</div>
+                      <div className="text-xs text-muted-foreground font-medium">{item.percentage.toFixed(1)}%</div>
                     </div>
                   </div>
                 ))}
@@ -764,11 +1033,12 @@ export default function KPIsPage() {
                     <Tooltip 
                       formatter={(value: number) => [formatCompactCurrency(value), '']}
                       contentStyle={{
-                        backgroundColor: '#f8fafc',
-                        border: '1px solid #e2e8f0',
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
                         borderRadius: '8px',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        color: 'hsl(var(--foreground))'
                       }}
                     />
                   </PieChart>
@@ -776,17 +1046,17 @@ export default function KPIsPage() {
               </div>
               <div className="mt-6 space-y-3">
                 {expenseBreakdown.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center space-x-3">
                       <div
                         className="w-4 h-4 rounded-full"
                         style={{ backgroundColor: item.color }}
                       />
-                      <span className="text-sm font-semibold text-gray-700">{item.name}</span>
+                      <span className="text-sm font-semibold text-foreground">{item.name}</span>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-bold text-gray-900">{formatCompactCurrency(item.value)}</div>
-                      <div className="text-xs text-gray-500 font-medium">{item.percentage.toFixed(1)}%</div>
+                      <div className="text-sm font-bold text-foreground">{formatCompactCurrency(item.value)}</div>
+                      <div className="text-xs text-muted-foreground font-medium">{item.percentage.toFixed(1)}%</div>
                     </div>
                   </div>
                 ))}
