@@ -25,9 +25,12 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
-  Activity
+  Activity,
+  HelpCircle
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { TargetsConfigModal, useCostTargets, CostTargets } from "@/components/analytics/cost-analysis/targets-config-modal"
+import { EfficiencyTooltip, TargetTooltip, VarianceTooltip, GeneralInfoTooltip } from "@/components/analytics/cost-analysis/metrics-info-tooltip"
 
 interface CostCategory {
   name: string
@@ -119,10 +122,11 @@ export default function CostAnalysisPage() {
   
   const storageService = new SupabaseStorageService()
   const { toast } = useToast()
+  const { targets, updateTargets } = useCostTargets()
 
   useEffect(() => {
     loadCostAnalysis()
-  }, [selectedReport, selectedPeriod])
+  }, [selectedReport, selectedPeriod, targets])
 
   const loadCostAnalysis = async () => {
     try {
@@ -243,17 +247,6 @@ export default function CostAnalysisPage() {
       })
 
     const totalCosts = Array.from(categoryMap.values()).reduce((sum, cat) => sum + cat.amount, 0)
-    
-    // Define targets and efficiency benchmarks
-    const targets = {
-      "Cemento": 35, // % of income
-      "Agregado Grueso": 8,
-      "Agregado Fino": 5,
-      "Aditivos": 3,
-      "Nómina Producción": 12,
-      "Diesel CR": 4,
-      "Agua": 1
-    }
 
     const colors = [
       "#dc2626", "#ea580c", "#d97706", "#ca8a04", "#a3a3a3",
@@ -264,14 +257,19 @@ export default function CostAnalysisPage() {
       .map(([name, data], index) => {
         const percentage = totalCosts > 0 ? (data.amount / totalCosts) * 100 : 0
         const incomePercentage = income > 0 ? (data.amount / income) * 100 : 0
-        const target = targets[name as keyof typeof targets] || incomePercentage
-        const efficiency = target > 0 ? Math.max(0, 100 - (incomePercentage / target) * 100) : 0
+        
+        // Use dynamic targets from configuration
+        const targetPercentage = targets.categorias[name] || 0
+        const targetAmount = income * targetPercentage / 100
+        
+        // Calculate efficiency: (Target - Actual) / Target * 100
+        const efficiency = targetAmount > 0 ? ((targetAmount - data.amount) / targetAmount) * 100 : 0
         
         let status: "excellent" | "good" | "warning" | "critical" = "good"
-        if (incomePercentage <= target * 0.9) status = "excellent"
-        else if (incomePercentage <= target) status = "good"
-        else if (incomePercentage <= target * 1.1) status = "warning"
-        else status = "critical"
+        if (efficiency >= 10) status = "excellent"      // 10% or more under target
+        else if (efficiency >= 0) status = "good"        // At or under target
+        else if (efficiency >= -10) status = "warning"   // Up to 10% over target
+        else status = "critical"                          // More than 10% over target
 
         return {
           name,
@@ -279,7 +277,7 @@ export default function CostAnalysisPage() {
           percentage,
           trend: Math.random() * 10 - 5, // TODO: Calculate from historical data
           efficiency,
-          target,
+          target: targetPercentage,
           status,
           color: colors[index % colors.length]
         }
@@ -311,7 +309,7 @@ export default function CostAnalysisPage() {
         
         if (clasificacion === "Materia prima") {
           current.materiaPrima += amount
-        } else if (clasificacion === "Costo Operativo") {
+        } else if (row.sub_categoria === "Costo operativo") {
           current.costoOperativo += amount
         } else if (clasificacion === "Costo Fijo") {
           current.costoFijo += amount
@@ -346,21 +344,21 @@ export default function CostAnalysisPage() {
     const metrics = [
       {
         category: "Materias Primas",
-        target: income * 0.45, // 45% target
+        target: income * targets.materiaPrima / 100,
         current: Math.abs(data
           .filter(row => row.tipo === "Egresos" && row.clasificacion === "Materia prima")
           .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
       },
       {
         category: "Costos Operativos", 
-        target: income * 0.15, // 15% target
+        target: income * targets.costosOperativos / 100,
         current: Math.abs(data
-          .filter(row => row.tipo === "Egresos" && row.clasificacion === "Costo Operativo")
+          .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo")
           .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
       },
       {
         category: "Nómina",
-        target: income * 0.18, // 18% target
+        target: income * targets.nomina / 100,
         current: Math.abs(data
           .filter(row => row.tipo === "Egresos" && row.categoria_1?.includes("Nómina"))
           .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
@@ -368,7 +366,8 @@ export default function CostAnalysisPage() {
     ]
 
     return metrics.map(metric => {
-      const efficiency = metric.target > 0 ? (1 - metric.current / metric.target) * 100 : 0
+      // Calculate efficiency: (Target - Actual) / Target * 100
+      const efficiency = metric.target > 0 ? ((metric.target - metric.current) / metric.target) * 100 : 0
       const variance = metric.current - metric.target
       const trend = variance < 0 ? "up" : variance > 0 ? "down" : "neutral"
       
@@ -376,7 +375,7 @@ export default function CostAnalysisPage() {
         category: metric.category,
         currentCost: metric.current,
         targetCost: metric.target,
-        efficiency: Math.max(0, efficiency),
+        efficiency,
         variance,
         trend: trend as "up" | "down" | "neutral"
       }
@@ -394,7 +393,7 @@ export default function CostAnalysisPage() {
         .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0))
 
       const operativos = Math.abs(data
-        .filter((row: any) => row.tipo === "Egresos" && row.clasificacion === "Costo Operativo")
+        .filter((row: any) => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo")
         .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0))
 
       const fijos = Math.abs(data
@@ -491,10 +490,18 @@ export default function CostAnalysisPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Análisis de Costos</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold text-foreground">Análisis de Costos</h1>
+              <GeneralInfoTooltip />
+            </div>
             <p className="text-muted-foreground mt-1">Análisis detallado de estructura de costos y eficiencia</p>
           </div>
           <div className="flex gap-4 mt-4 sm:mt-0">
+            <TargetsConfigModal
+              currentTargets={targets}
+              onTargetsChange={updateTargets}
+              totalIncome={totalIncome}
+            />
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Seleccionar período" />
@@ -540,11 +547,14 @@ export default function CostAnalysisPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Eficiencia General</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-muted-foreground">Eficiencia General</p>
+                    <EfficiencyTooltip />
+                  </div>
                   <p className="text-2xl font-bold text-foreground">
                     {totalIncome > 0 ? `${(((totalIncome - totalCosts) / totalIncome) * 100).toFixed(1)}%` : 'N/A'}
                   </p>
-                  <p className="text-xs text-green-600 mt-1">Meta: 85%</p>
+                  <p className="text-xs text-green-600 mt-1">Meta: {targets.eficienciaGeneral}%</p>
                 </div>
                 <Target className="h-8 w-8 text-green-500" />
               </div>
@@ -736,16 +746,18 @@ export default function CostAnalysisPage() {
                 <CardTitle className="flex items-center gap-2">
                   <Target className="h-5 w-5" />
                   Métricas de Eficiencia
+                  <EfficiencyTooltip />
                 </CardTitle>
                 <CardDescription>
-                  Comparación actual vs objetivos
+                  Comparación actual vs objetivos configurables
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   {costEfficiencyMetrics.map((metric, index) => {
                     const TrendIcon = getTrendIcon(metric.trend)
-                    const efficiencyPercent = Math.min(100, metric.efficiency)
+                    const efficiencyPercent = metric.efficiency
+                    const isPositive = efficiencyPercent >= 0
                     
                     return (
                       <div key={index} className="space-y-2">
@@ -755,14 +767,25 @@ export default function CostAnalysisPage() {
                             <TrendIcon className={`h-4 w-4 ${getTrendColor(metric.trend)}`} />
                           </div>
                           <div className="text-right">
-                            <div className="text-sm font-semibold text-foreground">{efficiencyPercent.toFixed(1)}%</div>
+                            <div className={`text-sm font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                              {efficiencyPercent > 0 ? '+' : ''}{efficiencyPercent.toFixed(1)}%
+                            </div>
                             <div className="text-xs text-muted-foreground">eficiencia</div>
                           </div>
                         </div>
-                        <Progress value={efficiencyPercent} className="h-2" />
+                        <Progress 
+                          value={Math.min(100, Math.max(0, efficiencyPercent + 50))} 
+                          className="h-2" 
+                        />
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>Actual: {formatCompactCurrency(metric.currentCost)}</span>
                           <span>Meta: {formatCompactCurrency(metric.targetCost)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className={`font-medium ${Math.abs(metric.variance) < metric.targetCost * 0.1 ? 'text-green-600' : 'text-red-600'}`}>
+                            Varianza: {metric.variance > 0 ? '+' : ''}{formatCompactCurrency(metric.variance)}
+                          </span>
+                          <VarianceTooltip />
                         </div>
                       </div>
                     )
@@ -847,6 +870,68 @@ export default function CostAnalysisPage() {
                   {costCategories.filter(c => c.status === "critical").length}
                 </div>
                 <div className="text-sm text-red-600">Situación Crítica</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Información y Ayuda */}
+        <Card className="shadow-lg border-blue-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-blue-600" />
+              Guía de Interpretación de Métricas
+            </CardTitle>
+            <CardDescription>
+              Cómo entender y usar las métricas de análisis de costos
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <EfficiencyTooltip />
+                  Eficiencia de Costos
+                </h4>
+                <div className="text-sm text-gray-700 space-y-1">
+                  <p><strong>Fórmula:</strong> (Objetivo - Costo Real) / Objetivo × 100</p>
+                  <p>• <span className="text-green-600 font-medium">Positivo (+):</span> Estás por debajo del objetivo (excelente)</p>
+                  <p>• <span className="text-red-600 font-medium">Negativo (-):</span> Estás por encima del objetivo (requiere acción)</p>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <TargetTooltip />
+                  Objetivos Configurables
+                </h4>
+                <div className="text-sm text-gray-700 space-y-1">
+                  <p>• Los objetivos se expresan como porcentaje del ingreso total</p>
+                  <p>• Usa "Configurar Objetivos" para personalizarlos</p>
+                  <p>• Basarlos en datos históricos y metas del negocio</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="border-t pt-4">
+              <h4 className="font-semibold text-gray-900 mb-2">Estados de Categorías</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <span><strong>Excelente:</strong> +10% o más bajo que objetivo</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                  <span><strong>Bueno:</strong> En objetivo o por debajo</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                  <span><strong>Atención:</strong> Hasta 10% sobre objetivo</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <span><strong>Crítico:</strong> Más de 10% sobre objetivo</span>
+                </div>
               </div>
             </div>
           </CardContent>

@@ -28,6 +28,8 @@ import {
   PieChart as PieChartIcon
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { BusinessUnitTargetsConfigModal, useBusinessUnitTargets, BusinessUnitTargets } from "@/components/analytics/business-units/targets-config-modal"
+import { MetricsInfoTooltip, BusinessUnitsInfoSection } from "@/components/analytics/business-units/metrics-info-tooltip"
 
 interface BusinessUnitMetrics {
   unit: string
@@ -143,10 +145,11 @@ export default function BusinessUnitsPage() {
   
   const storageService = new SupabaseStorageService()
   const { toast } = useToast()
+  const { targets, updateTargets } = useBusinessUnitTargets()
 
   useEffect(() => {
     loadBusinessUnitAnalysis()
-  }, [selectedPeriod])
+  }, [selectedPeriod, targets])
 
   const loadBusinessUnitAnalysis = async () => {
     try {
@@ -159,9 +162,16 @@ export default function BusinessUnitsPage() {
         return
       }
 
+      // Sort reports by date (newest first) to ensure correct chronological order
+      const sortedReports = [...allReports].sort((a, b) => {
+        const dateA = new Date(a.year, a.month - 1)
+        const dateB = new Date(b.year, b.month - 1)
+        return dateB.getTime() - dateA.getTime()
+      })
+
       // Get reports for the selected period
       const periodsToAnalyze = parseInt(selectedPeriod)
-      const reportsToAnalyze = allReports.slice(0, periodsToAnalyze)
+      const reportsToAnalyze = sortedReports.slice(0, periodsToAnalyze)
 
       if (reportsToAnalyze.length === 0) {
         setIsLoading(false)
@@ -277,11 +287,15 @@ export default function BusinessUnitsPage() {
         const eficienciaOperacional = data.ingresos > 0 ? ((data.ingresos - data.egresos) / data.ingresos) * 100 : 0
         const crecimiento = growthRates[unit] || 0
         
-        // Determine status based on performance
+        // Determine status based on dynamic targets
         let status: "leader" | "good" | "average" | "needs_attention" = "average"
-        if (margenUtilidad >= 20 && participacionMercado >= 25) status = "leader"
-        else if (margenUtilidad >= 15 && participacionMercado >= 15) status = "good"
-        else if (margenUtilidad < 10 || participacionMercado < 10) status = "needs_attention"
+        if (margenUtilidad >= targets.margenExcelente && participacionMercado >= targets.participacionLider) {
+          status = "leader"
+        } else if (margenUtilidad >= targets.margenBueno && participacionMercado >= targets.participacionBuena) {
+          status = "good"
+        } else if (margenUtilidad < 10 || participacionMercado < 10) {
+          status = "needs_attention"
+        }
         
         return {
           unit,
@@ -304,10 +318,7 @@ export default function BusinessUnitsPage() {
   }
 
   const calculateGrowthRates = (allData: any[]): Record<string, number> => {
-    if (allData.length < 2) return {}
-    
-    const currentPeriod = allData[0].data
-    const previousPeriod = allData[1].data
+    if (allData.length < 4) return {} // Necesitamos al menos 4 períodos para comparar
     
     const getCurrentUnitIncome = (data: any[], unit: string) => {
       return data
@@ -318,11 +329,29 @@ export default function BusinessUnitsPage() {
     const growthRates: Record<string, number> = {}
     
     Object.keys(UNIT_CONFIG).forEach(unit => {
-      const current = getCurrentUnitIncome(currentPeriod, unit)
-      const previous = getCurrentUnitIncome(previousPeriod, unit)
+      // Calcular ingresos por período
+      const monthlyIncome = allData.map(({ data }) => getCurrentUnitIncome(data, unit))
       
-      if (previous > 0) {
-        growthRates[unit] = ((current - previous) / previous) * 100
+      if (monthlyIncome.length >= 4) {
+        // Dividir en dos mitades para comparar períodos
+        const halfLength = Math.floor(monthlyIncome.length / 2)
+        const recentPeriods = monthlyIncome.slice(0, halfLength) // Más recientes
+        const previousPeriods = monthlyIncome.slice(halfLength) // Anteriores
+        
+        const recentAverage = recentPeriods.reduce((sum, income) => sum + income, 0) / recentPeriods.length
+        const previousAverage = previousPeriods.reduce((sum, income) => sum + income, 0) / previousPeriods.length
+        
+        if (previousAverage > 0) {
+          growthRates[unit] = ((recentAverage - previousAverage) / previousAverage) * 100
+        }
+      } else if (monthlyIncome.length >= 2) {
+        // Fallback: comparar último mes con el anterior
+        const current = monthlyIncome[0]
+        const previous = monthlyIncome[1]
+        
+        if (previous > 0) {
+          growthRates[unit] = ((current - previous) / previous) * 100
+        }
       }
     })
     
@@ -372,7 +401,8 @@ export default function BusinessUnitsPage() {
   }
 
   const calculateUnitTrends = (allData: any[]): UnitTrend[] => {
-    return allData.map(({ report, data }) => {
+    // Mapear los datos con información de fecha para ordenar correctamente
+    const trendsWithDate = allData.map(({ report, data }) => {
       const unitIncome = { BAJIO: 0, VIADUCTO: 0, ITISA: 0, OTROS: 0 }
       
       data
@@ -384,32 +414,36 @@ export default function BusinessUnitsPage() {
 
       return {
         period: `${String(report.month).padStart(2, '0')}/${report.year}`,
+        date: new Date(report.year, report.month - 1),
         ...unitIncome
       }
-    }).reverse()
+    })
+
+    // Ordenar por fecha (más antigua primero para mostrar progresión temporal)
+    return trendsWithDate
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .map(({ date, ...trend }) => trend) // Remover la fecha auxiliar
   }
 
   const calculateCompetitivenessMatrix = (unitMetrics: BusinessUnitMetrics[]): CompetitivenessMatrix[] => {
+    if (unitMetrics.length === 0) return []
+    
     return unitMetrics.map(unit => {
-      // Normalize metrics to 0-100 scale
-      const maxIngresos = Math.max(...unitMetrics.map(u => u.ingresos))
-      const maxMargen = Math.max(...unitMetrics.map(u => u.margenUtilidad))
-      const maxEficiencia = Math.max(...unitMetrics.map(u => u.eficienciaOperacional))
-      const maxCrecimiento = Math.max(...unitMetrics.map(u => u.crecimiento))
+      // Usar rangos de referencia empresarial en lugar de normalización relativa
+      const profitability = Math.min(100, Math.max(0, unit.margenUtilidad * 4)) // 25% = 100 puntos
+      const efficiency = Math.min(100, Math.max(0, unit.eficienciaOperacional * 3.33)) // 30% = 100 puntos  
+      const growth = Math.min(100, Math.max(0, 50 + (unit.crecimiento * 2.5))) // -20% a +20% = 0 a 100
+      const marketShare = Math.min(100, Math.max(0, unit.participacionMercado * 2)) // 50% = 100 puntos
       
-      const profitability = maxMargen > 0 ? (unit.margenUtilidad / maxMargen) * 100 : 0
-      const efficiency = maxEficiencia > 0 ? (unit.eficienciaOperacional / maxEficiencia) * 100 : 0
-      const growth = maxCrecimiento > 0 ? Math.max(0, (unit.crecimiento / maxCrecimiento) * 100) : 0
-      const marketShare = unit.participacionMercado
       const overall = (profitability + efficiency + growth + marketShare) / 4
       
       return {
         unit: unit.unit,
-        profitability,
-        efficiency,
-        growth,
-        marketShare,
-        overall
+        profitability: Math.round(profitability * 10) / 10,
+        efficiency: Math.round(efficiency * 10) / 10,
+        growth: Math.round(growth * 10) / 10,
+        marketShare: Math.round(marketShare * 10) / 10,
+        overall: Math.round(overall * 10) / 10
       }
     })
   }
@@ -550,10 +584,19 @@ export default function BusinessUnitsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Unidades de Negocio</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold text-foreground">Unidades de Negocio</h1>
+              <MetricsInfoTooltip type="general" />
+            </div>
             <p className="text-muted-foreground mt-1">Análisis comparativo de rendimiento por unidad</p>
           </div>
           <div className="flex gap-4 mt-4 sm:mt-0">
+            <BusinessUnitTargetsConfigModal
+              currentTargets={targets}
+              onTargetsChange={updateTargets}
+              totalIncome={businessUnitMetrics.reduce((sum, unit) => sum + unit.ingresos, 0)}
+              availableUnits={Object.keys(UNIT_CONFIG)}
+            />
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Seleccionar período" />
@@ -613,13 +656,19 @@ export default function BusinessUnitsPage() {
                         <span className="text-lg font-bold text-foreground">{formatCompactCurrency(unit.ingresos)}</span>
                       </div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-muted-foreground">Margen</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-muted-foreground">Margen</span>
+                          <MetricsInfoTooltip type="margen" />
+                        </div>
                         <span className={`text-sm font-semibold ${unit.margenUtilidad >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {unit.margenUtilidad.toFixed(1)}%
                         </span>
                       </div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-muted-foreground">Participación</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-muted-foreground">Participación</span>
+                          <MetricsInfoTooltip type="participacion" />
+                        </div>
                         <span className="text-sm font-semibold text-foreground">{unit.participacionMercado.toFixed(1)}%</span>
                       </div>
                       <Progress value={unit.participacionMercado} className="h-2" />
@@ -631,9 +680,13 @@ export default function BusinessUnitsPage() {
                         <span className={`text-sm font-medium ${getTrendColor(unit.crecimiento)}`}>
                           {unit.crecimiento >= 0 ? '+' : ''}{unit.crecimiento.toFixed(1)}%
                         </span>
+                        <MetricsInfoTooltip type="crecimiento" />
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-muted-foreground">Rank #{unit.rank}</div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          Rank #{unit.rank}
+                          <MetricsInfoTooltip type="ranking" />
+                        </div>
                         <div className="text-xs text-muted-foreground">{unit.plants.length} plantas</div>
                       </div>
                     </div>
@@ -653,6 +706,7 @@ export default function BusinessUnitsPage() {
                 <CardTitle className="flex items-center gap-2">
                   <BarChart className="h-5 w-5" />
                   Comparación de Rendimiento
+                  <MetricsInfoTooltip type="general" />
                 </CardTitle>
                 <CardDescription>
                   Ingresos, egresos y utilidad por unidad de negocio
@@ -691,6 +745,7 @@ export default function BusinessUnitsPage() {
                 <CardTitle className="flex items-center gap-2">
                   <PieChartIcon className="h-5 w-5" />
                   Participación de Mercado
+                  <MetricsInfoTooltip type="participacion" />
                 </CardTitle>
                 <CardDescription>
                   Distribución de ingresos por unidad de negocio
@@ -758,6 +813,7 @@ export default function BusinessUnitsPage() {
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
                 Tendencias Históricas por Unidad
+                <MetricsInfoTooltip type="tendencias" />
               </CardTitle>
               <CardDescription>
                 Evolución de ingresos por unidad de negocio en el tiempo
@@ -818,6 +874,7 @@ export default function BusinessUnitsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-5 w-5" />
                 Comparación de KPIs
+                <MetricsInfoTooltip type="general" />
               </CardTitle>
               <CardDescription>
                 Métricas clave comparativas entre unidades de negocio
@@ -874,42 +931,227 @@ export default function BusinessUnitsPage() {
                 <CardTitle className="flex items-center gap-2">
                   <Zap className="h-5 w-5" />
                   Matriz de Competitividad
+                  <MetricsInfoTooltip type="competitividad" />
                 </CardTitle>
                 <CardDescription>
                   Análisis multidimensional de rendimiento
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={competitivenessMatrix}>
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="unit" />
-                      <PolarRadiusAxis domain={[0, 100]} />
-                      <Radar
-                        name="Rentabilidad"
-                        dataKey="profitability"
-                        stroke="#10b981"
-                        fill="#10b981"
-                        fillOpacity={0.1}
-                      />
-                      <Radar
-                        name="Eficiencia"
-                        dataKey="efficiency"
-                        stroke="#3b82f6"
-                        fill="#3b82f6"
-                        fillOpacity={0.1}
-                      />
-                      <Radar
-                        name="Crecimiento"
-                        dataKey="growth"
-                        stroke="#8b5cf6"
-                        fill="#8b5cf6"
-                        fillOpacity={0.1}
-                      />
-                      <Legend />
-                    </RadarChart>
-                  </ResponsiveContainer>
+                <div className="space-y-6">
+                  {/* Dashboard de métricas por unidad */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {competitivenessMatrix.map((unit, index) => {
+                      const unitConfig = UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]
+                      const businessUnit = businessUnitMetrics.find(bu => bu.unit === unit.unit)
+                      
+                      return (
+                        <div key={unit.unit} className="p-4 border rounded-lg bg-gray-50">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-4 h-4 rounded-full"
+                                style={{ backgroundColor: unitConfig?.color || "#6b7280" }}
+                              />
+                              <h4 className="font-semibold text-lg">{unitConfig?.name || unit.unit}</h4>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold" style={{ color: unitConfig?.color }}>
+                                {unit.overall.toFixed(0)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">Puntuación Global</div>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {/* Rentabilidad */}
+                            <div>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span>Rentabilidad</span>
+                                <span className="font-medium">
+                                  {businessUnit?.margenUtilidad.toFixed(1)}% ({unit.profitability.toFixed(0)} pts)
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="h-2 rounded-full transition-all duration-300"
+                                  style={{ 
+                                    width: `${unit.profitability}%`,
+                                    backgroundColor: unitConfig?.color 
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* Eficiencia */}
+                            <div>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span>Eficiencia</span>
+                                <span className="font-medium">
+                                  {businessUnit?.eficienciaOperacional.toFixed(1)}% ({unit.efficiency.toFixed(0)} pts)
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="h-2 rounded-full transition-all duration-300"
+                                  style={{ 
+                                    width: `${unit.efficiency}%`,
+                                    backgroundColor: unitConfig?.color 
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* Crecimiento */}
+                            <div>
+                                                             <div className="flex justify-between text-sm mb-1">
+                                 <span>Crecimiento</span>
+                                 <span className="font-medium">
+                                   {businessUnit ? (businessUnit.crecimiento >= 0 ? '+' : '') + businessUnit.crecimiento.toFixed(1) + '%' : '0.0%'} ({unit.growth.toFixed(0)} pts)
+                                 </span>
+                               </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="h-2 rounded-full transition-all duration-300"
+                                  style={{ 
+                                    width: `${unit.growth}%`,
+                                    backgroundColor: unitConfig?.color 
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* Participación */}
+                            <div>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span>Participación</span>
+                                <span className="font-medium">
+                                  {businessUnit?.participacionMercado.toFixed(1)}% ({unit.marketShare.toFixed(0)} pts)
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="h-2 rounded-full transition-all duration-300"
+                                  style={{ 
+                                    width: `${unit.marketShare}%`,
+                                    backgroundColor: unitConfig?.color 
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  
+                  {/* Comparación visual */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Gráfico de barras comparativo */}
+                    <div>
+                      <h4 className="font-semibold mb-4">Comparación General</h4>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={competitivenessMatrix.map(unit => ({
+                            name: UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]?.name || unit.unit,
+                            Rentabilidad: unit.profitability,
+                            Eficiencia: unit.efficiency,
+                            Crecimiento: unit.growth,
+                            Participación: unit.marketShare
+                          }))}>
+                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                            <XAxis dataKey="name" fontSize={12} />
+                            <YAxis domain={[0, 100]} fontSize={12} />
+                            <Tooltip 
+                              formatter={(value: number) => [`${value.toFixed(1)} pts`, '']}
+                              contentStyle={{
+                                backgroundColor: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '8px'
+                              }}
+                            />
+                            <Bar dataKey="Rentabilidad" fill="#10b981" />
+                            <Bar dataKey="Eficiencia" fill="#3b82f6" />
+                            <Bar dataKey="Crecimiento" fill="#8b5cf6" />
+                            <Bar dataKey="Participación" fill="#f59e0b" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    
+                    {/* Ranking general */}
+                    <div>
+                      <h4 className="font-semibold mb-4">Ranking de Competitividad</h4>
+                      <div className="space-y-3">
+                        {competitivenessMatrix
+                          .sort((a, b) => b.overall - a.overall)
+                          .map((unit, index) => {
+                            const unitConfig = UNIT_CONFIG[unit.unit as keyof typeof UNIT_CONFIG]
+                            return (
+                              <div key={unit.unit} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-sm">
+                                    #{index + 1}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="w-3 h-3 rounded-full"
+                                      style={{ backgroundColor: unitConfig?.color }}
+                                    />
+                                    <span className="font-medium">{unitConfig?.name || unit.unit}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-bold text-lg" style={{ color: unitConfig?.color }}>
+                                    {unit.overall.toFixed(1)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">puntos</div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Escala de referencia */}
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold text-blue-800 mb-2">Escala de Puntuación (0-100 puntos)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-blue-700">
+                      <div>
+                        <strong>Rentabilidad:</strong>
+                        <ul className="text-xs mt-1">
+                          <li>• 100 pts = 25% margen</li>
+                          <li>• 80 pts = 20% margen</li>
+                          <li>• 60 pts = 15% margen</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <strong>Eficiencia:</strong>
+                        <ul className="text-xs mt-1">
+                          <li>• 100 pts = 30% eficiencia</li>
+                          <li>• 80 pts = 24% eficiencia</li>
+                          <li>• 60 pts = 18% eficiencia</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <strong>Crecimiento:</strong>
+                        <ul className="text-xs mt-1">
+                          <li>• 100 pts = +20% crecimiento</li>
+                          <li>• 50 pts = 0% crecimiento</li>
+                          <li>• 0 pts = -20% crecimiento</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <strong>Participación:</strong>
+                        <ul className="text-xs mt-1">
+                          <li>• 100 pts = 50% participación</li>
+                          <li>• 80 pts = 40% participación</li>
+                          <li>• 60 pts = 30% participación</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -920,6 +1162,7 @@ export default function BusinessUnitsPage() {
                 <CardTitle className="flex items-center gap-2">
                   <Factory className="h-5 w-5" />
                   Rendimiento Detallado por Planta
+                  <MetricsInfoTooltip type="general" />
                 </CardTitle>
                 <CardDescription>
                   Métricas individuales de cada planta
@@ -959,6 +1202,9 @@ export default function BusinessUnitsPage() {
             </Card>
           </div>
         )}
+
+        {/* Información y Guía de Interpretación */}
+        <BusinessUnitsInfoSection />
       </div>
     </DashboardLayout>
   )

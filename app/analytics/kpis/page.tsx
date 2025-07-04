@@ -26,6 +26,8 @@ import {
   Calculator
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { MetricsInfoTooltip, KPIsInfoSection } from "@/components/analytics/kpis/metrics-info-tooltip"
+import { KPITargetsConfigModal, useKPITargets } from "@/components/analytics/kpis/targets-config-modal"
 
 interface KPIMetric {
   id: string
@@ -103,6 +105,7 @@ export default function KPIsPage() {
   
   const storageService = new SupabaseStorageService()
   const { toast } = useToast()
+  const { targets, updateTargets } = useKPITargets()
 
   useEffect(() => {
     loadKPIData()
@@ -171,7 +174,7 @@ export default function KPIsPage() {
       // Calculate KPIs from aggregated data with volume integration
       const latestReportData = allData[0]
       const currentViewMode = foundVolumeData ? viewMode : "participation"
-      const metrics = calculateKPIMetrics(aggregatedData, latestReportData.report, allData, volumeData, cashSalesData, currentViewMode)
+      const metrics = calculateKPIMetrics(aggregatedData, latestReportData.report, allData, volumeData, cashSalesData, currentViewMode, targets)
       setKpiMetrics(metrics)
 
       // Calculate plant performance using aggregated data
@@ -221,7 +224,124 @@ export default function KPIsPage() {
     return Object.values(aggregated)
   }
 
-  const calculateKPIMetrics = (data: any[], report: FinancialReport, allData: any[], volumeData: any[] = [], cashSalesData: any[] = [], viewMode: "unit" | "participation" = "participation"): KPIMetric[] => {
+  const calculateKPIMetrics = (data: any[], report: FinancialReport, allData: any[], volumeData: any[] = [], cashSalesData: any[] = [], viewMode: "unit" | "participation" = "participation", kpiTargets: any): KPIMetric[] => {
+    // Helper function to determine status based on configurable targets
+    const getMetricStatus = (value: number, type: 'margen' | 'crecimiento' | 'eficiencia' | 'participacion' | 'egresos') => {
+      switch (type) {
+        case 'margen':
+          if (value >= kpiTargets.margenUtilidadExcelente) return "excellent"
+          if (value >= kpiTargets.margenUtilidadObjetivo) return "good"
+          if (value >= kpiTargets.margenUtilidadMinimo) return "warning"
+          return "critical"
+        case 'crecimiento':
+          if (value >= kpiTargets.crecimientoExcelente) return "excellent"
+          if (value >= kpiTargets.crecimientoObjetivo) return "good"
+          if (value >= kpiTargets.crecimientoMinimo) return "warning"
+          return "critical"
+        case 'eficiencia':
+          if (value >= kpiTargets.eficienciaExcelente) return "excellent"
+          if (value >= kpiTargets.eficienciaObjetivo) return "good"
+          if (value >= kpiTargets.eficienciaMinima) return "warning"
+          return "critical"
+        case 'participacion':
+          if (value >= kpiTargets.participacionExcelente) return "excellent"
+          if (value >= kpiTargets.participacionObjetivo) return "good"
+          if (value >= kpiTargets.participacionMinima) return "warning"
+          return "critical"
+        case 'egresos':
+          if (value <= kpiTargets.egresosExcelente) return "excellent"
+          if (value <= kpiTargets.egresosObjetivo) return "good"
+          if (value <= kpiTargets.egresosMaximo) return "warning"
+          return "critical"
+        default:
+          return "warning"
+      }
+    }
+
+    // Calculate growth rates using the same methodology as business-units
+    const calculateGrowthRates = (allData: any[]): { ingresos: number; egresos: number; utilidad: number; margen: number } => {
+      if (allData.length < 4) {
+        // Fallback: compare last period with previous one
+        if (allData.length >= 2) {
+          const currentData = allData[0].data
+          const previousData = allData[1].data
+          
+          const currentIngresos = currentData
+            .filter((row: any) => row.tipo === "Ingresos")
+            .reduce((sum: number, row: any) => sum + (row.monto || 0), 0)
+          
+          const currentEgresos = Math.abs(currentData
+            .filter((row: any) => row.tipo === "Egresos")
+            .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0))
+          
+          const currentUtilidad = currentIngresos - currentEgresos
+          const currentMargen = currentIngresos > 0 ? (currentUtilidad / currentIngresos) * 100 : 0
+          
+          const prevIngresos = previousData
+            .filter((row: any) => row.tipo === "Ingresos")
+            .reduce((sum: number, row: any) => sum + (row.monto || 0), 0)
+          
+          const prevEgresos = Math.abs(previousData
+            .filter((row: any) => row.tipo === "Egresos")
+            .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0))
+          
+          const prevUtilidad = prevIngresos - prevEgresos
+          const prevMargen = prevIngresos > 0 ? (prevUtilidad / prevIngresos) * 100 : 0
+          
+          return {
+            ingresos: prevIngresos > 0 ? ((currentIngresos - prevIngresos) / prevIngresos) * 100 : 0,
+            egresos: prevEgresos > 0 ? ((currentEgresos - prevEgresos) / prevEgresos) * 100 : 0,
+            utilidad: prevUtilidad !== 0 ? ((currentUtilidad - prevUtilidad) / Math.abs(prevUtilidad)) * 100 : 0,
+            margen: currentMargen - prevMargen
+          }
+        }
+        return { ingresos: 0, egresos: 0, utilidad: 0, margen: 0 }
+      }
+      
+      // Calculate metrics for each period
+      const periodMetrics = allData.map(({ data }) => {
+        const ingresos = data
+          .filter((row: any) => row.tipo === "Ingresos")
+          .reduce((sum: number, row: any) => sum + (row.monto || 0), 0)
+        
+        const egresos = Math.abs(data
+          .filter((row: any) => row.tipo === "Egresos")
+          .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0))
+        
+        const utilidad = ingresos - egresos
+        const margen = ingresos > 0 ? (utilidad / ingresos) * 100 : 0
+        
+        return { ingresos, egresos, utilidad, margen }
+      })
+      
+      // Divide into two halves for comparison
+      const halfLength = Math.floor(periodMetrics.length / 2)
+      const recentPeriods = periodMetrics.slice(0, halfLength) // More recent
+      const previousPeriods = periodMetrics.slice(halfLength) // Earlier
+      
+      // Calculate averages for each half
+      const recentAvg = {
+        ingresos: recentPeriods.reduce((sum, p) => sum + p.ingresos, 0) / recentPeriods.length,
+        egresos: recentPeriods.reduce((sum, p) => sum + p.egresos, 0) / recentPeriods.length,
+        utilidad: recentPeriods.reduce((sum, p) => sum + p.utilidad, 0) / recentPeriods.length,
+        margen: recentPeriods.reduce((sum, p) => sum + p.margen, 0) / recentPeriods.length
+      }
+      
+      const previousAvg = {
+        ingresos: previousPeriods.reduce((sum, p) => sum + p.ingresos, 0) / previousPeriods.length,
+        egresos: previousPeriods.reduce((sum, p) => sum + p.egresos, 0) / previousPeriods.length,
+        utilidad: previousPeriods.reduce((sum, p) => sum + p.utilidad, 0) / previousPeriods.length,
+        margen: previousPeriods.reduce((sum, p) => sum + p.margen, 0) / previousPeriods.length
+      }
+      
+      // Calculate growth rates
+      return {
+        ingresos: previousAvg.ingresos > 0 ? ((recentAvg.ingresos - previousAvg.ingresos) / previousAvg.ingresos) * 100 : 0,
+        egresos: previousAvg.egresos > 0 ? ((recentAvg.egresos - previousAvg.egresos) / previousAvg.egresos) * 100 : 0,
+        utilidad: previousAvg.utilidad !== 0 ? ((recentAvg.utilidad - previousAvg.utilidad) / Math.abs(previousAvg.utilidad)) * 100 : 0,
+        margen: recentAvg.margen - previousAvg.margen
+      }
+    }
     const ingresos = data
       .filter(row => row.tipo === "Ingresos")
       .reduce((sum, row) => sum + (row.monto || 0), 0)
@@ -260,30 +380,12 @@ export default function KPIsPage() {
     const utilidadFiscal = ingresos - egresos
     const margenUtilidadFiscal = ingresos > 0 ? (utilidadFiscal / ingresos) * 100 : 0
 
-    // Calculate trends from multiple periods
-    let ingresosChange = 0
-    let egresoChange = 0
-    let utilidadChange = 0
-    let margenChange = 0
-
-    if (allData.length > 1) {
-      const previousData = allData[1].data
-      const prevIngresos = previousData
-        .filter((row: any) => row.tipo === "Ingresos")
-        .reduce((sum: number, row: any) => sum + (row.monto || 0), 0)
-      
-      const prevEgresos = Math.abs(previousData
-        .filter((row: any) => row.tipo === "Egresos")
-        .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0))
-      
-      const prevUtilidad = prevIngresos - prevEgresos
-      const prevMargen = prevIngresos > 0 ? (prevUtilidad / prevIngresos) * 100 : 0
-
-      ingresosChange = prevIngresos > 0 ? ((ingresos - prevIngresos) / prevIngresos) * 100 : 0
-      egresoChange = prevEgresos > 0 ? ((egresos - prevEgresos) / prevEgresos) * 100 : 0
-      utilidadChange = prevUtilidad !== 0 ? ((utilidad - prevUtilidad) / Math.abs(prevUtilidad)) * 100 : 0
-      margenChange = margenUtilidad - prevMargen
-    }
+    // Calculate growth rates using the improved methodology
+    const growthRates = calculateGrowthRates(allData)
+    const ingresosChange = growthRates.ingresos
+    const egresoChange = growthRates.egresos
+    const utilidadChange = growthRates.utilidad
+    const margenChange = growthRates.margen
 
     // Calculate costs by managerial categories (respecting structure)
     const costoTransporte = data
@@ -326,9 +428,10 @@ export default function KPIsPage() {
           unit: "",
           change: `${ingresosChange >= 0 ? '+' : ''}${ingresosChange.toFixed(1)}%`,
           trend: ingresosChange > 0 ? "up" : ingresosChange < 0 ? "down" : "neutral",
-          status: ingresosChange > 5 ? "excellent" : ingresosChange > 0 ? "good" : ingresosChange > -5 ? "warning" : "critical",
+          status: getMetricStatus(ingresosChange, 'crecimiento'),
           description: `Ingresos fiscales + ventas en efectivo`,
-          icon: DollarSign
+          icon: DollarSign,
+          target: kpiTargets.crecimientoObjetivo
         },
         {
           id: "volumen_total",
@@ -370,10 +473,10 @@ export default function KPIsPage() {
           unit: "%",
           change: `${margenChange >= 0 ? '+' : ''}${margenChange.toFixed(1)}pp`,
           trend: margenChange > 0 ? "up" : margenChange < 0 ? "down" : "neutral",
-          status: margenUtilidad > 20 ? "excellent" : margenUtilidad > 10 ? "good" : margenUtilidad > 5 ? "warning" : "critical",
+          status: getMetricStatus(margenUtilidad, 'margen'),
           description: `Eficiencia en generación de utilidades`,
           icon: Percent,
-          target: 15
+          target: kpiTargets.margenUtilidadObjetivo
         },
         {
           id: "costo_unitario_transporte",
@@ -419,9 +522,10 @@ export default function KPIsPage() {
           unit: "",
           change: `${ingresosChange >= 0 ? '+' : ''}${ingresosChange.toFixed(1)}%`,
           trend: ingresosChange > 0 ? "up" : ingresosChange < 0 ? "down" : "neutral",
-          status: ingresosChange > 5 ? "excellent" : ingresosChange > 0 ? "good" : ingresosChange > -5 ? "warning" : "critical",
+          status: getMetricStatus(ingresosChange, 'crecimiento'),
           description: `Ingresos fiscales + ventas en efectivo`,
-          icon: DollarSign
+          icon: DollarSign,
+          target: kpiTargets.crecimientoObjetivo
         },
         {
           id: "egresos",
@@ -430,7 +534,7 @@ export default function KPIsPage() {
           unit: "",
           change: `${egresoChange >= 0 ? '+' : ''}${egresoChange.toFixed(1)}%`,
           trend: egresoChange < 0 ? "up" : egresoChange > 0 ? "down" : "neutral",
-          status: egresoChange < -5 ? "excellent" : egresoChange < 0 ? "good" : egresoChange < 5 ? "warning" : "critical",
+          status: getMetricStatus(egresoChange, 'egresos'),
           description: `Control de gastos vs período anterior`,
           icon: TrendingDown
         },
@@ -452,10 +556,10 @@ export default function KPIsPage() {
           unit: "%",
           change: `${margenChange >= 0 ? '+' : ''}${margenChange.toFixed(1)}pp`,
           trend: margenChange > 0 ? "up" : margenChange < 0 ? "down" : "neutral",
-          status: margenUtilidad > 20 ? "excellent" : margenUtilidad > 10 ? "good" : margenUtilidad > 5 ? "warning" : "critical",
+          status: getMetricStatus(margenUtilidad, 'margen'),
           description: `Eficiencia sobre ingresos totales`,
           icon: Percent,
-          target: 15
+          target: kpiTargets.margenUtilidadObjetivo
         },
         {
           id: "costo_transporte",
@@ -762,6 +866,13 @@ export default function KPIsPage() {
             <p className="text-muted-foreground mt-1">Indicadores clave de rendimiento y análisis financiero</p>
           </div>
           <div className="flex gap-4 mt-4 sm:mt-0">
+            <KPITargetsConfigModal
+              currentTargets={targets}
+              onTargetsChange={updateTargets}
+              totalIncome={kpiMetrics.find(m => m.id === 'ingresos')?.value ? 
+                parseFloat(kpiMetrics.find(m => m.id === 'ingresos')?.value.toString().replace(/[^0-9.-]/g, '') || '0') : 0}
+              availablePlants={plantPerformance.map(p => p.planta)}
+            />
             {hasVolumeData && (
               <div className="flex items-center gap-2">
                 <Button
@@ -796,6 +907,9 @@ export default function KPIsPage() {
           </div>
         </div>
 
+        {/* KPIs Info Section */}
+        <KPIsInfoSection />
+
         {/* KPI Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {kpiMetrics.map((metric) => {
@@ -810,6 +924,10 @@ export default function KPIsPage() {
                     <div className="flex items-center space-x-2">
                       <MetricIcon className="h-5 w-5 text-gray-600" />
                       <CardTitle className="text-sm font-medium text-muted-foreground">{metric.title}</CardTitle>
+                      <MetricsInfoTooltip 
+                        type={metric.id as any} 
+                        className="ml-1"
+                      />
                     </div>
                     <StatusIcon className={`h-4 w-4 ${getStatusColor(metric.status).replace('bg-', 'text-')}`} />
                   </div>

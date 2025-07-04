@@ -30,6 +30,7 @@ interface TrendData {
   viaductoIngresos: number
   itisaIngresos: number
   // Cost efficiency
+  materiaPrima: number
   materiaPrimaRatio: number
   costoOperativoRatio: number
 }
@@ -94,21 +95,7 @@ export default function HistoricalTrendsPage() {
       const allReports = await storageService.getFinancialReports()
       setReports(allReports)
 
-      // DEBUG: Investigate categories
-      console.log("🔍 DEBUGGING RAW MATERIALS DATA...")
-      try {
-        const debugData = await storageService.getUniqueCategoriesDebug()
-        console.log("📊 Available categoria_1 values:", debugData.categoria_1)
-        console.log("📊 Available sub_categoria values:", debugData.sub_categoria)
-        console.log("📊 Raw materials data found:", debugData.rawMaterialsData.length, "records")
-        
-        // Show some sample raw materials data
-        if (debugData.rawMaterialsData.length > 0) {
-          console.log("📊 Sample raw materials records:", debugData.rawMaterialsData.slice(0, 5))
-        }
-      } catch (debugError) {
-        console.error("Debug query failed:", debugError)
-      }
+
 
       // Process historical data for trends
       const trends = await processHistoricalTrends(allReports)
@@ -191,29 +178,7 @@ export default function HistoricalTrendsPage() {
         
         const materiaPrima = Math.abs(rawMaterialsRows.reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
         
-        // DEBUG: Log details for first report to investigate
-        if (report === allReports[0]) {
-          console.log(`🔍 Report ${report.month}/${report.year} Debug:`)
-          console.log(`  📈 Total ingresos: ${ingresos.toLocaleString()}`)
-          console.log(`  📉 Total egresos: ${reportData.filter(r => r.tipo === "Egresos").length} records`)
-          console.log(`  🏭 Raw materials rows found: ${rawMaterialsRows.length}`)
-          console.log(`  💰 Raw materials total: ${materiaPrima.toLocaleString()}`)
-          
-          if (rawMaterialsRows.length > 0) {
-            console.log(`  📋 Sample raw materials:`, rawMaterialsRows.slice(0, 3).map(r => ({
-              categoria_1: r.categoria_1,
-              sub_categoria: r.sub_categoria,
-              concepto: r.concepto,
-              monto: r.monto
-            })))
-          } else {
-            console.log(`  ❌ No raw materials found! Checking all egresos categories:`)
-            const uniqueCategories = [...new Set(reportData.filter(r => r.tipo === "Egresos").map(r => r.categoria_1))]
-            const uniqueSubCategories = [...new Set(reportData.filter(r => r.tipo === "Egresos").map(r => r.sub_categoria))]
-            console.log(`     Available categoria_1:`, uniqueCategories)
-            console.log(`     Available sub_categoria:`, uniqueSubCategories)
-          }
-        }
+        
 
         const costoOperativo = Math.abs(reportData
           .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo")
@@ -253,23 +218,15 @@ export default function HistoricalTrendsPage() {
         bajioIngresos: data.bajioIngresos / data.count,
         viaductoIngresos: data.viaductoIngresos / data.count,
         itisaIngresos: data.itisaIngresos / data.count,
+        materiaPrima: data.materiaPrima / data.count,
         // FIXED: Calculate efficiency vs benchmark instead of just participation
         materiaPrimaRatio: data.ingresos > 0 ? 
           (() => {
             const actualPercentage = (data.materiaPrima / data.ingresos) * 100
             const benchmark = 47.5 // Target: 45-50% average
+            
+            // Calculate efficiency vs target (0 materias primas = excelente eficiencia)
             const efficiency = ((benchmark - actualPercentage) / benchmark) * 100 // Efficiency vs target
-            
-            // DEBUG: Log calculation for first period
-            if (period === Array.from(trendsMap.keys()).sort()[0]) {
-              console.log(`🧮 Efficiency Calculation for ${period}:`)
-              console.log(`  💰 Ingresos: ${data.ingresos.toLocaleString()}`)
-              console.log(`  🏭 Materias Primas: ${data.materiaPrima.toLocaleString()}`)
-              console.log(`  📊 Actual %: ${actualPercentage.toFixed(2)}%`)
-              console.log(`  🎯 Benchmark: ${benchmark}%`)
-              console.log(`  ⚡ Efficiency: ${efficiency.toFixed(2)}%`)
-            }
-            
             return efficiency
           })() : 0,
         costoOperativoRatio: data.ingresos > 0 ? (data.costoOperativo / data.ingresos) * 100 : 0,
@@ -455,6 +412,12 @@ export default function HistoricalTrendsPage() {
     const accumulatedUtilidad = latest.utilidadAcumulada
     const accumulatedIngresos = latest.ingresosAcumulados
 
+    // Calculate weighted average efficiency for raw materials (across all periods)
+    const totalIngresos = trends.reduce((sum, t) => sum + t.ingresos, 0)
+    const totalMateriaPrima = trends.reduce((sum, t) => sum + t.materiaPrima, 0)
+    const avgMateriaPrimaPercentage = totalIngresos > 0 ? (totalMateriaPrima / totalIngresos) * 100 : 0
+    const avgMateriaPrimaEfficiency = ((47.5 - avgMateriaPrimaPercentage) / 47.5) * 100
+
     return [
       {
         title: "Ingresos Mensuales",
@@ -486,9 +449,9 @@ export default function HistoricalTrendsPage() {
       },
       {
         title: "Eficiencia Materias Primas",
-        value: `${latest.materiaPrimaRatio.toFixed(1)}%`,
-        change: `${latest.materiaPrimaRatio > 5 ? 'Excelente' : latest.materiaPrimaRatio > 0 ? 'Bueno' : latest.materiaPrimaRatio > -5 ? 'Regular' : 'Crítico'}`,
-        trend: latest.materiaPrimaRatio > 0 ? "up" : "down",
+        value: `${avgMateriaPrimaEfficiency.toFixed(1)}%`,
+        change: `${avgMateriaPrimaEfficiency > 5 ? 'Excelente' : avgMateriaPrimaEfficiency > 0 ? 'Bueno' : avgMateriaPrimaEfficiency > -5 ? 'Regular' : 'Crítico'}`,
+        trend: avgMateriaPrimaEfficiency > 0 ? "up" : "down",
         icon: Factory
       },
       {
@@ -656,7 +619,7 @@ export default function HistoricalTrendsPage() {
                           <p><strong>Interpretación:</strong></p>
                           <p>• <span className="text-green-600">Positivo:</span> Mejor que objetivo</p>
                           <p>• <span className="text-red-600">Negativo:</span> Peor que objetivo</p>
-                          <p>• <span className="text-blue-600">100%:</span> Posible falta de datos</p>
+                          <p>• <span className="text-green-600">~100%:</span> Sin materias primas = óptimo</p>
                         </div>
                       </div>
                     </TooltipContent>
