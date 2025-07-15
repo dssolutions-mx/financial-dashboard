@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle, XCircle, AlertTriangle, Upload, Eye } from "lucide-react"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { ValidationSummary, ReportMetadata } from "@/lib/services/validation-service"
 import { DebugDataRow } from "@/lib/services/excel-processor"
 
@@ -40,6 +41,7 @@ export default function ValidationModal({
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [year, setYear] = useState(new Date().getFullYear())
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const isMobile = useIsMobile()
 
   if (!validationSummary) return null
 
@@ -79,13 +81,13 @@ export default function ValidationModal({
     <div className="flex items-center gap-2">
       {isValid ? (
         <>
-          <CheckCircle className="h-5 w-5 text-green-500" />
-          <span className="text-green-700 font-medium text-sm">Validación Exitosa</span>
+          <CheckCircle className={`${isMobile ? 'h-6 w-6' : 'h-5 w-5'} text-green-500`} />
+          <span className={`text-green-700 font-medium ${isMobile ? 'text-base' : 'text-sm'}`}>Validación Exitosa</span>
         </>
       ) : (
         <>
-          <XCircle className="h-5 w-5 text-red-500" />
-          <span className="text-red-700 font-medium text-sm">Requiere Revisión</span>
+          <XCircle className={`${isMobile ? 'h-6 w-6' : 'h-5 w-5'} text-red-500`} />
+          <span className={`text-red-700 font-medium ${isMobile ? 'text-base' : 'text-sm'}`}>Requiere Revisión</span>
         </>
       )}
     </div>
@@ -93,45 +95,46 @@ export default function ValidationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={`${isMobile ? 'max-w-[95vw] max-h-[95vh] w-[95vw] p-4' : 'max-w-4xl max-h-[90vh]'} overflow-y-auto`}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-orange-500" />
-            Validación de Datos Financieros
+          <DialogTitle className={`flex items-center gap-3 ${isMobile ? 'text-lg' : 'text-xl'}`}>
+            <AlertTriangle className={`${isMobile ? 'h-5 w-5' : 'h-6 w-6'} text-orange-500`} />
+            {isMobile ? 'Validación de Datos' : 'Validación de Datos Financieros'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className={`${isMobile ? 'text-sm' : 'text-base'}`}>
             Archivo: <span className="font-medium">{fileName}</span>
           </DialogDescription>
         </DialogHeader>
 
-          <div className="space-y-6">
+          <div className={`${isMobile ? 'space-y-4' : 'space-y-6'}`}>
             {/* Report Configuration */}
             <Card>
               <CardHeader>
-                <CardTitle>Configuración del Reporte</CardTitle>
-                <CardDescription>
+                <CardTitle className={`${isMobile ? 'text-base' : 'text-lg'}`}>Configuración del Reporte</CardTitle>
+                <CardDescription className={`${isMobile ? 'text-sm' : 'text-base'}`}>
                   Configure los datos del reporte antes de guardar
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2 space-y-2">
-                    <Label htmlFor="report-name">Nombre del Reporte</Label>
+              <CardContent className={`${isMobile ? 'space-y-3' : 'space-y-3'}`}>
+                <div className={`${isMobile ? 'space-y-3' : 'grid grid-cols-3 gap-4'}`}>
+                  <div className={`${isMobile ? 'space-y-2' : 'col-span-2 space-y-2'}`}>
+                    <Label htmlFor="report-name" className={`${isMobile ? 'text-sm' : 'text-base'}`}>Nombre del Reporte</Label>
                     <Input
                       id="report-name"
                       value={reportName}
                       onChange={(e) => setReportName(e.target.value)}
                       placeholder="Ej: Reporte Mensual Enero 2024"
+                      className={`${isMobile ? 'h-12 text-base' : 'h-10 text-sm'}`}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className={`${isMobile ? 'grid grid-cols-2 gap-3' : 'space-y-2'}`}>
                     <div className="space-y-2">
-                      <Label htmlFor="month">Mes</Label>
+                      <Label htmlFor="month" className={`${isMobile ? 'text-sm' : 'text-base'}`}>Mes</Label>
                       <select
                         id="month"
                         value={month}
                         onChange={(e) => setMonth(parseInt(e.target.value))}
-                        className="w-full border rounded px-3 py-2 h-10 text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                        className={`w-full border rounded px-3 py-2 ${isMobile ? 'h-12 text-base' : 'h-10 text-sm'} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600`}
                       >
                         {Array.from({ length: 12 }, (_, i) => (
                           <option key={i + 1} value={i + 1}>
@@ -141,12 +144,13 @@ export default function ValidationModal({
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="year">Año</Label>
+                      <Label htmlFor="year" className={`${isMobile ? 'text-sm' : 'text-base'}`}>Año</Label>
                       <Input
                         id="year"
                         type="number"
                         value={year}
                         onChange={(e) => setYear(parseInt(e.target.value))}
+                        className={`${isMobile ? 'h-12 text-base' : 'h-10 text-sm'}`}
                       />
                     </div>
                   </div>
@@ -157,50 +161,50 @@ export default function ValidationModal({
             {/* Validation Summary */}
             <Card>
               <CardHeader>
-                <CardTitle>Resumen de Validación</CardTitle>
+                <CardTitle className={`${isMobile ? 'text-base' : 'text-lg'}`}>Resumen de Validación</CardTitle>
                 <ValidationStatus isValid={validationSummary.isValid} />
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <CardContent className={`${isMobile ? 'space-y-3' : 'space-y-3'}`}>
+                <div className={`${isMobile ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-3 gap-4'}`}>
+                  <div className={`${isMobile ? 'p-3' : 'p-4'} bg-blue-50 dark:bg-blue-900/20 rounded-lg`}>
+                    <div className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-blue-600 dark:text-blue-400`}>
                       {validationSummary.totalRows}
                     </div>
-                    <div className="text-xs text-blue-700 dark:text-blue-300">
+                    <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-blue-700 dark:text-blue-300`}>
                       Filas Procesadas
                     </div>
                   </div>
-                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  <div className={`${isMobile ? 'p-3' : 'p-4'} bg-green-50 dark:bg-green-900/20 rounded-lg`}>
+                    <div className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-green-600 dark:text-green-400`}>
                       {validationSummary.classifiedRows}
                     </div>
-                    <div className="text-xs text-green-700 dark:text-green-300">
+                    <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-green-700 dark:text-green-300`}>
                       Filas Clasificadas
                     </div>
                   </div>
-                  <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                  <div className={`${isMobile ? 'p-3' : 'p-4'} bg-orange-50 dark:bg-orange-900/20 rounded-lg`}>
+                    <div className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold text-orange-600 dark:text-orange-400`}>
                       {validationSummary.unclassifiedRows}
                     </div>
-                    <div className="text-xs text-orange-700 dark:text-orange-300">
+                    <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-orange-700 dark:text-orange-300`}>
                       Sin Clasificar
                     </div>
                   </div>
                 </div>
 
                 {/* Summary by Type */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold">Resumen por Tipo</h4>
-                  <div className="space-y-1">
+                <div className={`${isMobile ? 'space-y-3' : 'space-y-2'}`}>
+                  <h4 className={`${isMobile ? 'text-base' : 'text-sm'} font-semibold`}>Resumen por Tipo</h4>
+                  <div className={`${isMobile ? 'space-y-2' : 'space-y-1'}`}>
                     {Object.entries(validationSummary.summaryByType).map(([type, data]) => (
-                      <div key={type} className="p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                      <div key={type} className={`${isMobile ? 'p-3' : 'p-2'} bg-gray-50 dark:bg-gray-800 rounded`}>
                         <div className="flex justify-between items-center">
-                          <span className="text-xs font-medium">{type}</span>
-                          <Badge variant={type === 'Ingresos' ? 'default' : 'secondary'} className="text-xs">
+                          <span className={`${isMobile ? 'text-sm' : 'text-xs'} font-medium`}>{type}</span>
+                          <Badge variant={type === 'Ingresos' ? 'default' : 'secondary'} className={`${isMobile ? 'text-xs' : 'text-xs'}`}>
                             {formatCurrency(data.total)}
                           </Badge>
                         </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-gray-600 dark:text-gray-400 mt-1`}>
                           {data.count} registros
                         </div>
                       </div>
@@ -213,10 +217,10 @@ export default function ValidationModal({
             {/* Warnings */}
             {validationSummary.warnings.length > 0 && (
               <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle className="text-sm">Advertencias</AlertTitle>
-                <AlertDescription className="text-xs">
-                  <ul className="mt-1 space-y-1">
+                <AlertTriangle className={`${isMobile ? 'h-5 w-5' : 'h-4 w-4'}`} />
+                <AlertTitle className={`${isMobile ? 'text-base' : 'text-sm'}`}>Advertencias</AlertTitle>
+                <AlertDescription className={`${isMobile ? 'text-sm' : 'text-xs'}`}>
+                  <ul className={`${isMobile ? 'mt-2 space-y-1' : 'mt-1 space-y-1'}`}>
                     {validationSummary.warnings.map((warning, index) => (
                       <li key={index} className="flex items-start">
                         <span className="mr-2">•</span>
@@ -232,10 +236,10 @@ export default function ValidationModal({
             {validationSummary.unclassifiedRows > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-orange-700 dark:text-orange-400">
+                  <CardTitle className={`${isMobile ? 'text-base' : 'text-lg'} text-orange-700 dark:text-orange-400`}>
                     Datos Sin Clasificar
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className={`${isMobile ? 'text-sm' : 'text-base'}`}>
                     {validationSummary.unclassifiedRows} registros requieren clasificación manual
                   </CardDescription>
                 </CardHeader>
@@ -243,9 +247,9 @@ export default function ValidationModal({
                   <Button
                     onClick={onViewUnclassified}
                     variant="outline"
-                    className="w-full flex items-center justify-center gap-2"
+                    className={`${isMobile ? 'w-full h-12 text-base' : 'w-full'} flex items-center justify-center gap-2`}
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className={`${isMobile ? 'h-5 w-5' : 'h-4 w-4'}`} />
                     Ver Datos Sin Clasificar
                   </Button>
                 </CardContent>
@@ -253,26 +257,27 @@ export default function ValidationModal({
             )}
 
             {/* Action Buttons */}
-            <div className="flex justify-end space-x-2 pt-4">
+            <div className={`${isMobile ? 'flex flex-col gap-3 pt-4' : 'flex justify-end space-x-2 pt-4'}`}>
               <Button
                 onClick={onClose}
                 variant="outline"
+                className={`${isMobile ? 'w-full h-12 text-base' : ''}`}
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleApprove}
                 disabled={isSubmitting || !reportName.trim()}
-                className="bg-green-600 hover:bg-green-700"
+                className={`${isMobile ? 'w-full h-12 text-base' : ''} bg-green-600 hover:bg-green-700`}
               >
                 {isSubmitting ? (
                   <>
-                    <Upload className="mr-2 h-4 w-4" />
+                    <Upload className={`${isMobile ? 'mr-2 h-5 w-5' : 'mr-2 h-4 w-4'}`} />
                     Guardando...
                   </>
                 ) : (
                   <>
-                    <Upload className="mr-2 h-4 w-4" />
+                    <Upload className={`${isMobile ? 'mr-2 h-5 w-5' : 'mr-2 h-4 w-4'}`} />
                     Aprobar y Guardar
                   </>
                 )}
