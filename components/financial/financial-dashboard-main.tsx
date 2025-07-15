@@ -122,6 +122,12 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
   const [isDebugFromValidation, setIsDebugFromValidation] = useState(false)
   
+  // Multi-report accumulation state
+  const [enableAccumulation, setEnableAccumulation] = useState(false)
+  const [selectedReports, setSelectedReports] = useState<FinancialReport[]>([])
+  const [accumulatedData, setAccumulatedData] = useState<DebugDataRow[]>([])
+  const [isLoadingAccumulation, setIsLoadingAccumulation] = useState(false)
+  
   // Volume persistence state
   const [currentMonth, setCurrentMonth] = useState<number | null>(null)
   const [currentYear, setCurrentYear] = useState<number | null>(null)
@@ -140,6 +146,98 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
   useEffect(() => {
     setData(initialData)
   }, [initialData])
+
+  // Function to aggregate data from multiple reports
+  const aggregateReportsData = useCallback(async (reports: FinancialReport[]) => {
+    if (reports.length === 0) {
+      setAccumulatedData([])
+      return
+    }
+
+    setIsLoadingAccumulation(true)
+    try {
+      const allData: DebugDataRow[] = []
+      
+      for (const report of reports) {
+        const reportData = await storageService.getFinancialData(report.id)
+        const convertedData: DebugDataRow[] = reportData.map(row => ({
+          Codigo: row.codigo,
+          Concepto: row.concepto,
+          Abonos: row.abonos,
+          Cargos: row.cargos,
+          Tipo: row.tipo,
+          'Categoria 1': row.categoria_1,
+          'Sub categoria': row.sub_categoria,
+          Clasificacion: row.clasificacion,
+          Monto: row.monto,
+          Planta: row.planta,
+        }))
+        allData.push(...convertedData)
+      }
+      
+      // Aggregate data by grouping similar entries
+      const aggregatedMap = new Map<string, DebugDataRow>()
+      
+      allData.forEach(row => {
+        const key = `${row.Codigo}-${row.Tipo}-${row['Categoria 1']}-${row['Sub categoria']}-${row.Clasificacion}-${row.Planta}`
+        
+        if (aggregatedMap.has(key)) {
+          const existing = aggregatedMap.get(key)!
+          existing.Monto += row.Monto
+          existing.Abonos += row.Abonos
+          existing.Cargos += row.Cargos
+        } else {
+          aggregatedMap.set(key, { ...row })
+        }
+      })
+      
+      const aggregatedData = Array.from(aggregatedMap.values())
+      setAccumulatedData(aggregatedData)
+      
+      toast({
+        title: "Datos acumulados",
+        description: `Se acumularon datos de ${reports.length} reportes (${aggregatedData.length} registros totales)`,
+      })
+    } catch (error) {
+      console.error("Error aggregating reports data:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los datos de los reportes seleccionados",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoadingAccumulation(false)
+    }
+  }, [storageService, toast])
+
+  // Handle multiple report selection
+  const handleMultipleReportsSelection = useCallback(async (reports: FinancialReport[]) => {
+    setSelectedReports(reports)
+    
+    if (reports.length > 0) {
+      await aggregateReportsData(reports)
+    } else {
+      setAccumulatedData([])
+    }
+  }, [aggregateReportsData])
+
+  // Toggle accumulation mode
+  const toggleAccumulationMode = useCallback(() => {
+    setEnableAccumulation(prev => {
+      const newMode = !prev
+      if (!newMode) {
+        // Reset to normal mode
+        setSelectedReports([])
+        setAccumulatedData([])
+      }
+      return newMode
+    })
+  }, [])
+
+  // Get current data based on mode
+  const getCurrentData = useCallback(() => {
+    return enableAccumulation ? accumulatedData : data
+  }, [enableAccumulation, accumulatedData, data])
 
   // Calculate summary data
   const calculateSummary = useCallback((filteredData: DebugDataRow[]) => {
@@ -163,15 +261,18 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
      ? ALL_PLANTS 
      : selectedUnits.flatMap(unit => unitToPlants[unit] || [])
    
-   // Calculate cash sales revenue inline
+   // Calculate cash sales revenue inline (only in normal mode)
    let ingresosCash = 0
-   Object.entries(cashSalesData).forEach(([category, plants]) => {
-     visiblePlants.forEach(plant => {
-       if (plants[plant]) {
-         ingresosCash += plants[plant].amount
-       }
+   if (!enableAccumulation) {
+     Object.entries(cashSalesData).forEach(([category, plants]) => {
+       visiblePlants.forEach(plant => {
+         if (plants[plant]) {
+           ingresosCash += plants[plant].amount
+         }
+       })
      })
-   })
+   }
+   
    const ingresos = ingresosFiscales + ingresosCash
    const utilidadBruta = ingresos + egresos
    const porcentajeUtilidad = ingresos !== 0 ? (utilidadBruta / ingresos) * 100 : 0
@@ -182,7 +283,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
      utilidadBruta,
      porcentajeUtilidad,
    })
- }, [selectedUnits, selectedCategory, cashSalesData])
+ }, [selectedUnits, selectedCategory, cashSalesData, enableAccumulation])
 
  const processMatrixData = useCallback((filteredData: DebugDataRow[]) => {
    const filteredByUnit = selectedUnits.includes("ALL")
@@ -261,8 +362,8 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
         }
      })
 
-     // Add cash sales data to hierarchy as additional income rows
-     if (Object.keys(cashSalesData).length > 0) {
+     // Add cash sales data to hierarchy as additional income rows (only in normal mode)
+     if (!enableAccumulation && Object.keys(cashSalesData).length > 0) {
        // Ensure Ingresos section exists
        if (!hierarchy["Ingresos"]) {
          hierarchy["Ingresos"] = {
@@ -327,11 +428,12 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
      }
 
    setMatrixData(hierarchy)
-  }, [selectedUnits, selectedCategory, cashSalesData])
+  }, [selectedUnits, selectedCategory, cashSalesData, enableAccumulation])
 
   // Main useEffect for data processing
   useEffect(() => {
-     const validData = data.filter(row => row.Tipo !== 'Indefinido')
+     const currentData = getCurrentData()
+     const validData = currentData.filter(row => row.Tipo !== 'Indefinido')
 
     calculateSummary(validData)
     processMatrixData(validData)
@@ -342,7 +444,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
     } else {
       setCategories(["ALL"])
     }
-  }, [data, selectedUnits, selectedCategory, calculateSummary, processMatrixData, cashSalesData])
+  }, [getCurrentData, selectedUnits, selectedCategory, calculateSummary, processMatrixData, cashSalesData])
 
   // Get visible plants based on selected units
   const getVisiblePlants = useCallback(() => {
@@ -615,6 +717,21 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
             </select>
           </div>
 
+          {/* Accumulation Mode Toggle */}
+          <Button
+            variant={enableAccumulation ? "default" : "outline"}
+            size="sm"
+            onClick={toggleAccumulationMode}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${
+              enableAccumulation 
+                ? "bg-orange-600 text-white hover:bg-orange-700" 
+                : "border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800"
+            }`}
+          >
+            <Database size={14} /> 
+            {enableAccumulation ? "Modo Acumulativo" : "Modo Individual"}
+          </Button>
+
           {/* Unit Price View Toggle */}
           <Button
             variant={showUnitPriceView ? "default" : "outline"}
@@ -675,7 +792,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
       </div>
 
       {/* Volume Data Button */}
-      {currentMonth && currentYear && (
+      {currentMonth && currentYear && !enableAccumulation && (
         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -705,7 +822,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
       )}
 
       {/* Cash Sales Data Button */}
-      {currentMonth && currentYear && (
+      {currentMonth && currentYear && !enableAccumulation && (
         <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -730,6 +847,52 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                 Configurar Ventas en Efectivo
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Accumulation Mode Info Panel */}
+      {enableAccumulation && (
+        <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <Database size={20} className="text-orange-600 dark:text-orange-400" />
+              <div>
+                <h3 className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                  Modo Acumulativo Activo
+                </h3>
+                <p className="text-xs text-orange-700 dark:text-orange-300">
+                  {isLoadingAccumulation 
+                    ? "Cargando y acumulando datos de reportes..." 
+                    : selectedReports.length === 0
+                      ? "Seleccione múltiples reportes abajo para ver datos acumulados"
+                      : `Mostrando datos acumulados de ${selectedReports.length} reporte(s)`
+                  }
+                </p>
+              </div>
+            </div>
+            
+            {selectedReports.length > 0 && !isLoadingAccumulation && (
+              <div className="bg-white dark:bg-gray-800 rounded-md p-3 border border-orange-200 dark:border-orange-600">
+                <h4 className="text-xs font-medium text-gray-700 dark:text-gray-200 mb-2">
+                  Reportes Seleccionados:
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {selectedReports.map(report => (
+                    <div key={report.id} className="flex items-center gap-2 text-xs bg-gray-50 dark:bg-gray-700 rounded px-2 py-1">
+                      <Badge variant="outline" className="text-xs">
+                        {new Date(2024, report.month - 1, 1).toLocaleDateString('es-MX', { month: 'short' })} {report.year}
+                      </Badge>
+                      <span className="truncate text-gray-600 dark:text-gray-300">{report.name}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                  <span className="font-medium">Total de registros acumulados: </span>
+                  <span className="text-orange-600 dark:text-orange-400">{accumulatedData.length.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -768,10 +931,17 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
         <Card className="p-3 bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700">
           <h3 className="text-xs text-gray-600 dark:text-gray-400">INGRESOS TOTALES</h3>
           <p className="text-lg font-bold text-gray-800 dark:text-gray-100">{formatMoney(summaryData.ingresos, true)}</p>
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            <div>Fiscal: {formatMoney(summaryData.ingresos - getTotalCashSalesRevenue(getVisiblePlants()), true)}</div>
-            <div>Efectivo: {formatMoney(getTotalCashSalesRevenue(getVisiblePlants()), true)}</div>
-          </div>
+          {!enableAccumulation && (
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div>Fiscal: {formatMoney(summaryData.ingresos - getTotalCashSalesRevenue(getVisiblePlants()), true)}</div>
+              <div>Efectivo: {formatMoney(getTotalCashSalesRevenue(getVisiblePlants()), true)}</div>
+            </div>
+          )}
+          {enableAccumulation && (
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div>Datos acumulados de {selectedReports.length} reporte(s)</div>
+            </div>
+          )}
         </Card>
         <Card className="p-3 bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700">
           <h3 className="text-xs text-gray-600 dark:text-gray-400">EGRESOS</h3>
@@ -786,12 +956,26 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
           <p className="text-lg font-bold text-gray-800 dark:text-gray-100">{summaryData.porcentajeUtilidad.toFixed(2)}%</p>
         </Card>
         <Card className="p-3 bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700">
-          <h3 className="text-xs text-gray-600 dark:text-gray-400">VOLUMEN TOTAL</h3>
-          <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{formatVolumen(getTotalCombinedVolume(getVisiblePlants()))} m³</p>
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            <div>Concreto: {formatVolumen(getTotalVolume("Ventas Concreto", getVisiblePlants()))} m³</div>
-            <div>Bombeo: {formatVolumen(getTotalVolume("Ventas Bombeo", getVisiblePlants()))} m³</div>
-          </div>
+          <h3 className="text-xs text-gray-600 dark:text-gray-400">
+            {enableAccumulation ? "REGISTROS TOTALES" : "VOLUMEN TOTAL"}
+          </h3>
+          {enableAccumulation ? (
+            <>
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{accumulatedData.length.toLocaleString()}</p>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <div>Reportes: {selectedReports.length}</div>
+                <div>Períodos: {selectedReports.length > 0 ? `${Math.min(...selectedReports.map(r => r.month))}/${Math.min(...selectedReports.map(r => r.year))} - ${Math.max(...selectedReports.map(r => r.month))}/${Math.max(...selectedReports.map(r => r.year))}` : '-'}</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{formatVolumen(getTotalCombinedVolume(getVisiblePlants()))} m³</p>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <div>Concreto: {formatVolumen(getTotalVolume("Ventas Concreto", getVisiblePlants()))} m³</div>
+                <div>Bombeo: {formatVolumen(getTotalVolume("Ventas Bombeo", getVisiblePlants()))} m³</div>
+              </div>
+            </>
+          )}
         </Card>
       </div>
 
@@ -1160,36 +1344,41 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
         <div className="mb-6">
           <ReportSelector
             onSelectReport={async (report: FinancialReport) => {
-              const reportData = await storageService.getFinancialData(report.id)
-              const convertedData: DebugDataRow[] = reportData.map(row => ({
-                Codigo: row.codigo,
-                Concepto: row.concepto,
-                Abonos: row.abonos,
-                Cargos: row.cargos,
-                Tipo: row.tipo,
-                'Categoria 1': row.categoria_1,
-                'Sub categoria': row.sub_categoria,
-                Clasificacion: row.clasificacion,
-                Monto: row.monto,
-                Planta: row.planta,
-              }))
-              setData(convertedData)
-              onDataUpdate(convertedData)
-              setSelectedReportId(report.id)
-              
-              // Set current month/year and load volume data
-              setCurrentMonth(report.month)
-              setCurrentYear(report.year)
-              await loadVolumeData(report.month, report.year)
-              await loadCashSalesData(report.month, report.year)
+              if (!enableAccumulation) {
+                const reportData = await storageService.getFinancialData(report.id)
+                const convertedData: DebugDataRow[] = reportData.map(row => ({
+                  Codigo: row.codigo,
+                  Concepto: row.concepto,
+                  Abonos: row.abonos,
+                  Cargos: row.cargos,
+                  Tipo: row.tipo,
+                  'Categoria 1': row.categoria_1,
+                  'Sub categoria': row.sub_categoria,
+                  Clasificacion: row.clasificacion,
+                  Monto: row.monto,
+                  Planta: row.planta,
+                }))
+                setData(convertedData)
+                onDataUpdate(convertedData)
+                setSelectedReportId(report.id)
+                
+                // Set current month/year and load volume data
+                setCurrentMonth(report.month)
+                setCurrentYear(report.year)
+                await loadVolumeData(report.month, report.year)
+                await loadCashSalesData(report.month, report.year)
+              }
             }}
-                         onDeleteReport={async (reportId: string) => {
-               await storageService.deleteReport(reportId)
-               if (selectedReportId === reportId) {
-                 setSelectedReportId(null)
-               }
-             }}
-            selectedReportId={selectedReportId || undefined}
+            onSelectMultipleReports={enableAccumulation ? handleMultipleReportsSelection : undefined}
+            onDeleteReport={async (reportId: string) => {
+              await storageService.deleteReport(reportId)
+              if (selectedReportId === reportId) {
+                setSelectedReportId(null)
+              }
+            }}
+            selectedReportId={enableAccumulation ? undefined : (selectedReportId || undefined)}
+            selectedReportIds={enableAccumulation ? selectedReports.map(r => r.id) : undefined}
+            enableMultiSelect={enableAccumulation}
           />
         </div>
       )}
