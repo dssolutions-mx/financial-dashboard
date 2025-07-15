@@ -283,6 +283,7 @@ export default function ValidationModal({
                 )}
               </Button>
             </div>
+          </div>
       </DialogContent>
     </Dialog>
   )
