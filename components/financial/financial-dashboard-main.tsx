@@ -596,11 +596,15 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
     try {
       setIsLoading(true)
       const allData: DebugDataRow[] = []
+      const accumulatedVolumes: Record<string, Record<string, number>> = {}
+      const accumulatedCashSales: Record<string, Record<string, { volume: number; amount: number }>> = {}
       
       // Load and accumulate data from all selected reports
       for (const report of reports) {
         try {
           console.log(`Loading data for report: ${report.name} (${report.id})`)
+          
+          // Load financial data
           const reportData = await storageService.getFinancialData(report.id)
           
           if (!reportData || reportData.length === 0) {
@@ -621,6 +625,44 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
             Planta: row.planta || 'SIN CLASIFICACION',
           }))
           allData.push(...convertedData)
+          
+          // Load and accumulate volume data for this report
+          try {
+            const volumeData = await storageService.getPlantVolumesGrouped(report.month, report.year)
+            Object.entries(volumeData).forEach(([category, plants]) => {
+              if (!accumulatedVolumes[category]) {
+                accumulatedVolumes[category] = {}
+              }
+              Object.entries(plants).forEach(([plant, volume]) => {
+                if (!accumulatedVolumes[category][plant]) {
+                  accumulatedVolumes[category][plant] = 0
+                }
+                accumulatedVolumes[category][plant] += volume
+              })
+            })
+          } catch (volumeError) {
+            console.warn(`No volume data for report ${report.name}:`, volumeError)
+          }
+          
+          // Load and accumulate cash sales data for this report
+          try {
+            const cashSalesData = await storageService.getCashSalesGrouped(report.month, report.year)
+            Object.entries(cashSalesData).forEach(([category, plants]) => {
+              if (!accumulatedCashSales[category]) {
+                accumulatedCashSales[category] = {}
+              }
+              Object.entries(plants).forEach(([plant, data]) => {
+                if (!accumulatedCashSales[category][plant]) {
+                  accumulatedCashSales[category][plant] = { volume: 0, amount: 0 }
+                }
+                accumulatedCashSales[category][plant].volume += data.volume
+                accumulatedCashSales[category][plant].amount += data.amount
+              })
+            })
+          } catch (cashError) {
+            console.warn(`No cash sales data for report ${report.name}:`, cashError)
+          }
+          
         } catch (reportError) {
           console.error(`Error loading report ${report.name}:`, reportError)
           throw new Error(`Error al cargar el reporte ${report.name}`)
@@ -634,12 +676,17 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
       // Group and sum the data by unique keys
       const accumulatedData = accumulateData(allData)
       
+      // Set all accumulated data
       setData(accumulatedData)
       onDataUpdate(accumulatedData)
       setAccumulatedReports(reports)
       setSelectedReportIds(reports.map(r => r.id))
       
-      // Load volume data for the latest report
+      // Set accumulated volumes and cash sales
+      setVolumenes(accumulatedVolumes)
+      setCashSalesData(accumulatedCashSales)
+      
+      // Set current month/year to the latest report for UI display
       if (reports.length > 0) {
         const latestReport = reports.sort((a, b) => {
           if (a.year !== b.year) return b.year - a.year
@@ -648,14 +695,21 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
         
         setCurrentMonth(latestReport.month)
         setCurrentYear(latestReport.year)
-        await loadVolumeData(latestReport.month, latestReport.year)
-        await loadCashSalesData(latestReport.month, latestReport.year)
       }
+      
+      // Calculate total volumes and cash sales for the toast message
+      const totalVolume = Object.values(accumulatedVolumes).reduce((total, plants) => {
+        return total + Object.values(plants).reduce((sum, vol) => sum + vol, 0)
+      }, 0)
+      
+      const totalCashAmount = Object.values(accumulatedCashSales).reduce((total, plants) => {
+        return total + Object.values(plants).reduce((sum, data) => sum + data.amount, 0)
+      }, 0)
       
       toast({
         title: "Reportes Acumulados",
-        description: `Se han acumulado ${reports.length} reportes exitosamente (${accumulatedData.length} registros)`,
-        duration: 3000,
+        description: `${reports.length} reportes acumulados exitosamente: ${accumulatedData.length} registros, ${formatVolumen(totalVolume)} m³ total, ${formatMoney(totalCashAmount)} en ventas efectivo`,
+        duration: 5000,
       })
     } catch (error) {
       console.error("Error accumulating reports:", error)
@@ -713,7 +767,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
               <h1 className="text-3xl font-bold">Dashboard Financiero</h1>
               <p className="text-muted-foreground mt-1">
                 {isMultiSelectMode && accumulatedReports.length > 0
-                  ? `Acumulado de ${accumulatedReports.length} reportes: ${accumulatedReports.map(r => `${getMonthName(r.month)} ${r.year}`).join(', ')}`
+                  ? `Vista Acumulada: ${accumulatedReports.length} períodos (${accumulatedReports[accumulatedReports.length - 1] ? `${getMonthName(accumulatedReports[accumulatedReports.length - 1].month)} ${accumulatedReports[accumulatedReports.length - 1].year}` : ''} - ${accumulatedReports[0] ? `${getMonthName(accumulatedReports[0].month)} ${accumulatedReports[0].year}` : ''})`
                   : currentMonth && currentYear 
                     ? `Período: ${new Date(2024, currentMonth - 1).toLocaleDateString('es-MX', { month: 'long' })} ${currentYear}` 
                     : "Análisis y visualización de datos financieros"
@@ -778,22 +832,27 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
               <Calendar size={20} className="text-blue-600 dark:text-blue-400" />
               <div>
                 <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                  Datos de Volumen - {currentMonth}/{currentYear}
+                  Datos de Volumen - {isMultiSelectMode && accumulatedReports.length > 0 ? "Acumulado" : `${currentMonth}/${currentYear}`}
                 </h3>
                 <p className="text-xs text-blue-700 dark:text-blue-300">
-                  {isLoadingVolumes ? "Cargando datos..." : "Configure los metros cúbicos para cada planta"}
+                  {isMultiSelectMode && accumulatedReports.length > 0
+                    ? "Mostrando volúmenes acumulados de múltiples períodos"
+                    : isLoadingVolumes 
+                      ? "Cargando datos..." 
+                      : "Configure los metros cúbicos para cada planta"
+                  }
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Button
                 onClick={() => setIsVolumeModalOpen(true)}
-                disabled={isLoadingVolumes}
+                disabled={isLoadingVolumes || (isMultiSelectMode && accumulatedReports.length > 0)}
                 size="sm"
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
               >
                 <Database size={14} />
-                Configurar Volúmenes
+                {isMultiSelectMode && accumulatedReports.length > 0 ? "Vista Acumulada" : "Configurar Volúmenes"}
               </Button>
             </div>
           </div>
@@ -808,22 +867,27 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
               <DollarSign size={20} className="text-green-600 dark:text-green-400" />
               <div>
                 <h3 className="text-sm font-medium text-green-900 dark:text-green-100">
-                  Ventas en Efectivo - {currentMonth}/{currentYear}
+                  Ventas en Efectivo - {isMultiSelectMode && accumulatedReports.length > 0 ? "Acumulado" : `${currentMonth}/${currentYear}`}
                 </h3>
                 <p className="text-xs text-green-700 dark:text-green-300">
-                  {isLoadingCashSales ? "Cargando datos..." : "Configure las ventas en efectivo (no fiscales)"}
+                  {isMultiSelectMode && accumulatedReports.length > 0
+                    ? "Mostrando ventas en efectivo acumuladas de múltiples períodos"
+                    : isLoadingCashSales 
+                      ? "Cargando datos..." 
+                      : "Configure las ventas en efectivo (no fiscales)"
+                  }
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Button
                 onClick={() => setIsCashSalesModalOpen(true)}
-                disabled={isLoadingCashSales}
+                disabled={isLoadingCashSales || (isMultiSelectMode && accumulatedReports.length > 0)}
                 size="sm"
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
               >
                 <DollarSign size={14} />
-                Configurar Ventas en Efectivo
+                {isMultiSelectMode && accumulatedReports.length > 0 ? "Vista Acumulada" : "Configurar Ventas en Efectivo"}
               </Button>
             </div>
           </div>
@@ -1313,13 +1377,23 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Layers className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <div>
+              <div className="flex-1">
                 <h3 className="font-medium text-blue-900 dark:text-blue-100">
                   Reportes Acumulados ({accumulatedReports.length})
                 </h3>
                 <p className="text-sm text-blue-700 dark:text-blue-300">
                   {accumulatedReports.map(r => `${getMonthName(r.month)} ${r.year}`).join(' + ')}
                 </p>
+                <div className="flex gap-4 mt-1 text-xs text-blue-600 dark:text-blue-400">
+                  <span className="flex items-center gap-1">
+                    <Database className="h-3 w-3" />
+                    Incluye volúmenes acumulados
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" />
+                    Incluye ventas en efectivo
+                  </span>
+                </div>
               </div>
             </div>
             <Button
@@ -1330,6 +1404,8 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                 onDataUpdate([])
                 setAccumulatedReports([])
                 setSelectedReportIds([])
+                setVolumenes({})
+                setCashSalesData({})
               }}
               className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             >
