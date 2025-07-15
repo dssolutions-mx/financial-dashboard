@@ -34,6 +34,7 @@ export default function ReportSelector({
   const [selectedYear, setSelectedYear] = useState<string>("all")
   const [selectedMonth, setSelectedMonth] = useState<string>("all")
   const [checkedReports, setCheckedReports] = useState<Set<string>>(new Set())
+  const [isAccumulating, setIsAccumulating] = useState(false)
 
   // Load reports on component mount
   useEffect(() => {
@@ -124,10 +125,15 @@ export default function ReportSelector({
     setCheckedReports(newCheckedReports)
   }
 
-  const handleAccumulate = () => {
+  const handleAccumulate = async () => {
     if (onAccumulateReports && checkedReports.size > 0) {
-      const selectedReports = reports.filter(report => checkedReports.has(report.id))
-      onAccumulateReports(selectedReports)
+      setIsAccumulating(true)
+      try {
+        const selectedReports = reports.filter(report => checkedReports.has(report.id))
+        await onAccumulateReports(selectedReports)
+      } finally {
+        setIsAccumulating(false)
+      }
     }
   }
 
@@ -177,9 +183,23 @@ export default function ReportSelector({
           </Select>
 
           {multiSelect && checkedReports.size > 0 && (
-            <Button onClick={handleAccumulate} variant="default" className="ml-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Acumular {checkedReports.size} reportes
+            <Button 
+              onClick={handleAccumulate} 
+              variant="default" 
+              className="ml-auto"
+              disabled={isAccumulating}
+            >
+              {isAccumulating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Acumulando...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Acumular {checkedReports.size} reportes
+                </>
+              )}
             </Button>
           )}
         </div>
@@ -267,7 +287,7 @@ export default function ReportSelector({
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {report.record_count} registros
+                        {report.total_records} registros
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">

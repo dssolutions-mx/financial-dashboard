@@ -139,6 +139,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
   const [cashSalesData, setCashSalesData] = useState<Record<string, Record<string, { volume: number; amount: number }>>>({})
   const [isCashSalesModalOpen, setIsCashSalesModalOpen] = useState(false)
   const [isLoadingCashSales, setIsLoadingCashSales] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   
   const storageService = new SupabaseStorageService()
   const { toast } = useToast()
@@ -598,20 +599,36 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
       
       // Load and accumulate data from all selected reports
       for (const report of reports) {
-        const reportData = await storageService.getFinancialData(report.id)
-        const convertedData: DebugDataRow[] = reportData.map(row => ({
-          Codigo: row.codigo,
-          Concepto: row.concepto,
-          Abonos: row.abonos,
-          Cargos: row.cargos,
-          Tipo: row.tipo,
-          'Categoria 1': row.categoria_1,
-          'Sub categoria': row.sub_categoria,
-          Clasificacion: row.clasificacion,
-          Monto: row.monto,
-          Planta: row.planta,
-        }))
-        allData.push(...convertedData)
+        try {
+          console.log(`Loading data for report: ${report.name} (${report.id})`)
+          const reportData = await storageService.getFinancialData(report.id)
+          
+          if (!reportData || reportData.length === 0) {
+            console.warn(`No data found for report ${report.name}`)
+            continue
+          }
+          
+          const convertedData: DebugDataRow[] = reportData.map(row => ({
+            Codigo: row.codigo || '',
+            Concepto: row.concepto || '',
+            Abonos: parseFloat(row.abonos?.toString() || '0') || 0,
+            Cargos: parseFloat(row.cargos?.toString() || '0') || 0,
+            Tipo: row.tipo || '',
+            'Categoria 1': row.categoria_1 || '',
+            'Sub categoria': row.sub_categoria || '',
+            Clasificacion: row.clasificacion || '',
+            Monto: parseFloat(row.monto?.toString() || '0') || 0,
+            Planta: row.planta || 'SIN CLASIFICACION',
+          }))
+          allData.push(...convertedData)
+        } catch (reportError) {
+          console.error(`Error loading report ${report.name}:`, reportError)
+          throw new Error(`Error al cargar el reporte ${report.name}`)
+        }
+      }
+      
+      if (allData.length === 0) {
+        throw new Error("No se encontraron datos en los reportes seleccionados")
       }
       
       // Group and sum the data by unique keys
@@ -637,14 +654,15 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
       
       toast({
         title: "Reportes Acumulados",
-        description: `Se han acumulado ${reports.length} reportes exitosamente`,
+        description: `Se han acumulado ${reports.length} reportes exitosamente (${accumulatedData.length} registros)`,
         duration: 3000,
       })
     } catch (error) {
       console.error("Error accumulating reports:", error)
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido al acumular los reportes"
       toast({
         title: "Error",
-        description: "Error al acumular los reportes",
+        description: errorMessage,
         variant: "destructive",
         duration: 5000,
       })
@@ -659,15 +677,23 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
     
     data.forEach(row => {
       // Create a unique key based on codigo, concepto, tipo, categoria, subcategoria, clasificacion, and planta
-      const key = `${row.Codigo}|${row.Concepto}|${row.Tipo}|${row['Categoria 1']}|${row['Sub categoria']}|${row.Clasificacion}|${row.Planta}`
+      const codigo = row.Codigo || ''
+      const concepto = row.Concepto || ''
+      const tipo = row.Tipo || ''
+      const categoria1 = row['Categoria 1'] || ''
+      const subCategoria = row['Sub categoria'] || ''
+      const clasificacion = row.Clasificacion || ''
+      const planta = row.Planta || 'SIN CLASIFICACION'
+      
+      const key = `${codigo}|${concepto}|${tipo}|${categoria1}|${subCategoria}|${clasificacion}|${planta}`
       
       if (groupedData.has(key)) {
         const existing = groupedData.get(key)!
         groupedData.set(key, {
           ...existing,
-          Abonos: existing.Abonos + row.Abonos,
-          Cargos: existing.Cargos + row.Cargos,
-          Monto: existing.Monto + row.Monto,
+          Abonos: (existing.Abonos || 0) + (row.Abonos || 0),
+          Cargos: (existing.Cargos || 0) + (row.Cargos || 0),
+          Monto: (existing.Monto || 0) + (row.Monto || 0),
         })
       } else {
         groupedData.set(key, { ...row })
@@ -695,14 +721,25 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
               </p>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowUploadModal(true)}
-                className="flex items-center gap-2"
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="excel-upload"
+                disabled={isProcessing}
+              />
+              <label
+                htmlFor="excel-upload"
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer border ${
+                  isProcessing
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                    : "bg-background hover:bg-accent hover:text-accent-foreground border-input"
+                }`}
               >
                 <Upload className="h-4 w-4" />
-                Subir Balanza
-              </Button>
+                {isProcessing ? "Procesando..." : "Subir Balanza"}
+              </label>
               
               <Button
                 variant={isMultiSelectMode ? "default" : "outline"}
@@ -1225,16 +1262,16 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
               if (!isMultiSelectMode) {
                 const reportData = await storageService.getFinancialData(report.id)
                 const convertedData: DebugDataRow[] = reportData.map(row => ({
-                  Codigo: row.codigo,
-                  Concepto: row.concepto,
-                  Abonos: row.abonos,
-                  Cargos: row.cargos,
-                  Tipo: row.tipo,
-                  'Categoria 1': row.categoria_1,
-                  'Sub categoria': row.sub_categoria,
-                  Clasificacion: row.clasificacion,
-                  Monto: row.monto,
-                  Planta: row.planta,
+                  Codigo: row.codigo || '',
+                  Concepto: row.concepto || '',
+                  Abonos: parseFloat(row.abonos?.toString() || '0') || 0,
+                  Cargos: parseFloat(row.cargos?.toString() || '0') || 0,
+                  Tipo: row.tipo || '',
+                  'Categoria 1': row.categoria_1 || '',
+                  'Sub categoria': row.sub_categoria || '',
+                  Clasificacion: row.clasificacion || '',
+                  Monto: parseFloat(row.monto?.toString() || '0') || 0,
+                  Planta: row.planta || 'SIN CLASIFICACION',
                 }))
                 setData(convertedData)
                 onDataUpdate(convertedData)
@@ -1260,8 +1297,18 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
         </div>
       )}
       
+      {/* Loading Indicator */}
+      {isLoading && (
+        <Card className="p-4 mb-6 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-center gap-2">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900 dark:border-gray-100"></div>
+            <span className="text-gray-700 dark:text-gray-300">Cargando reportes...</span>
+          </div>
+        </Card>
+      )}
+      
       {/* Accumulated Reports Info */}
-      {isMultiSelectMode && accumulatedReports.length > 0 && (
+      {isMultiSelectMode && accumulatedReports.length > 0 && !isLoading && (
         <Card className="p-4 mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
