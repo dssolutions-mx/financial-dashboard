@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, ChevronRight, Calculator, Upload, Eye, Download, Database, Calendar, DollarSign } from "lucide-react"
+import { ChevronDown, ChevronRight, Calculator, Upload, Eye, Download, Database, Calendar, DollarSign, Layers } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { handleBalanzaFileUpload, type DebugDataRow } from "@/lib/services/excel-processor"
 import { validationEngine, ValidationSummary, ReportMetadata } from "@/lib/services/validation-service"
@@ -94,6 +94,10 @@ const shouldShowVolumeDisplay = (tipo: string, subCategoria: string, clasificaci
   )
 }
 
+const getMonthName = (month: number): string => {
+  return new Date(2024, month - 1, 1).toLocaleDateString('es-MX', { month: 'long' })
+}
+
 export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialDashboardMainProps) {
   const [data, setData] = useState<DebugDataRow[]>(initialData)
   const [selectedUnits, setSelectedUnits] = useState<string[]>(["ALL"])
@@ -120,6 +124,9 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
   const [currentRawData, setCurrentRawData] = useState<any[]>([])
   const [showReportSelector, setShowReportSelector] = useState(false)
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
+  const [selectedReportIds, setSelectedReportIds] = useState<string[]>([])
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
+  const [accumulatedReports, setAccumulatedReports] = useState<FinancialReport[]>([])
   const [isDebugFromValidation, setIsDebugFromValidation] = useState(false)
   
   // Volume persistence state
@@ -132,6 +139,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
   const [cashSalesData, setCashSalesData] = useState<Record<string, Record<string, { volume: number; amount: number }>>>({})
   const [isCashSalesModalOpen, setIsCashSalesModalOpen] = useState(false)
   const [isLoadingCashSales, setIsLoadingCashSales] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   
   const storageService = new SupabaseStorageService()
   const { toast } = useToast()
@@ -583,96 +591,238 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
     }
   }
 
+  // Function to accumulate data from multiple reports
+  const accumulateReportsData = async (reports: FinancialReport[]) => {
+    try {
+      setIsLoading(true)
+      const allData: DebugDataRow[] = []
+      const accumulatedVolumes: Record<string, Record<string, number>> = {}
+      const accumulatedCashSales: Record<string, Record<string, { volume: number; amount: number }>> = {}
+      
+      // Load and accumulate data from all selected reports
+      for (const report of reports) {
+        try {
+          console.log(`Loading data for report: ${report.name} (${report.id})`)
+          
+          // Load financial data
+          const reportData = await storageService.getFinancialData(report.id)
+          
+          if (!reportData || reportData.length === 0) {
+            console.warn(`No data found for report ${report.name}`)
+            continue
+          }
+          
+          const convertedData: DebugDataRow[] = reportData.map(row => ({
+            Codigo: row.codigo || '',
+            Concepto: row.concepto || '',
+            Abonos: parseFloat(row.abonos?.toString() || '0') || 0,
+            Cargos: parseFloat(row.cargos?.toString() || '0') || 0,
+            Tipo: row.tipo || '',
+            'Categoria 1': row.categoria_1 || '',
+            'Sub categoria': row.sub_categoria || '',
+            Clasificacion: row.clasificacion || '',
+            Monto: parseFloat(row.monto?.toString() || '0') || 0,
+            Planta: row.planta || 'SIN CLASIFICACION',
+          }))
+          allData.push(...convertedData)
+          
+          // Load and accumulate volume data for this report
+          try {
+            const volumeData = await storageService.getPlantVolumesGrouped(report.month, report.year)
+            Object.entries(volumeData).forEach(([category, plants]) => {
+              if (!accumulatedVolumes[category]) {
+                accumulatedVolumes[category] = {}
+              }
+              Object.entries(plants).forEach(([plant, volume]) => {
+                if (!accumulatedVolumes[category][plant]) {
+                  accumulatedVolumes[category][plant] = 0
+                }
+                accumulatedVolumes[category][plant] += volume
+              })
+            })
+          } catch (volumeError) {
+            console.warn(`No volume data for report ${report.name}:`, volumeError)
+          }
+          
+          // Load and accumulate cash sales data for this report
+          try {
+            const cashSalesData = await storageService.getCashSalesGrouped(report.month, report.year)
+            Object.entries(cashSalesData).forEach(([category, plants]) => {
+              if (!accumulatedCashSales[category]) {
+                accumulatedCashSales[category] = {}
+              }
+              Object.entries(plants).forEach(([plant, data]) => {
+                if (!accumulatedCashSales[category][plant]) {
+                  accumulatedCashSales[category][plant] = { volume: 0, amount: 0 }
+                }
+                accumulatedCashSales[category][plant].volume += data.volume
+                accumulatedCashSales[category][plant].amount += data.amount
+              })
+            })
+          } catch (cashError) {
+            console.warn(`No cash sales data for report ${report.name}:`, cashError)
+          }
+          
+        } catch (reportError) {
+          console.error(`Error loading report ${report.name}:`, reportError)
+          throw new Error(`Error al cargar el reporte ${report.name}`)
+        }
+      }
+      
+      if (allData.length === 0) {
+        throw new Error("No se encontraron datos en los reportes seleccionados")
+      }
+      
+      // Group and sum the data by unique keys
+      const accumulatedData = accumulateData(allData)
+      
+      // Set all accumulated data
+      setData(accumulatedData)
+      onDataUpdate(accumulatedData)
+      setAccumulatedReports(reports)
+      setSelectedReportIds(reports.map(r => r.id))
+      
+      // Set accumulated volumes and cash sales
+      setVolumenes(accumulatedVolumes)
+      setCashSalesData(accumulatedCashSales)
+      
+      // Set current month/year to the latest report for UI display
+      if (reports.length > 0) {
+        const latestReport = reports.sort((a, b) => {
+          if (a.year !== b.year) return b.year - a.year
+          return b.month - a.month
+        })[0]
+        
+        setCurrentMonth(latestReport.month)
+        setCurrentYear(latestReport.year)
+      }
+      
+      // Calculate total volumes and cash sales for the toast message
+      const totalVolume = Object.values(accumulatedVolumes).reduce((total, plants) => {
+        return total + Object.values(plants).reduce((sum, vol) => sum + vol, 0)
+      }, 0)
+      
+      const totalCashAmount = Object.values(accumulatedCashSales).reduce((total, plants) => {
+        return total + Object.values(plants).reduce((sum, data) => sum + data.amount, 0)
+      }, 0)
+      
+      toast({
+        title: "Reportes Acumulados",
+        description: `${reports.length} reportes acumulados exitosamente: ${accumulatedData.length} registros, ${formatVolumen(totalVolume)} m³ total, ${formatMoney(totalCashAmount)} en ventas efectivo`,
+        duration: 5000,
+      })
+    } catch (error) {
+      console.error("Error accumulating reports:", error)
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido al acumular los reportes"
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 5000,
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  // Function to accumulate data by grouping and summing
+  const accumulateData = (data: DebugDataRow[]): DebugDataRow[] => {
+    const groupedData = new Map<string, DebugDataRow>()
+    
+    data.forEach(row => {
+      // Create a unique key based on codigo, concepto, tipo, categoria, subcategoria, clasificacion, and planta
+      const codigo = row.Codigo || ''
+      const concepto = row.Concepto || ''
+      const tipo = row.Tipo || ''
+      const categoria1 = row['Categoria 1'] || ''
+      const subCategoria = row['Sub categoria'] || ''
+      const clasificacion = row.Clasificacion || ''
+      const planta = row.Planta || 'SIN CLASIFICACION'
+      
+      const key = `${codigo}|${concepto}|${tipo}|${categoria1}|${subCategoria}|${clasificacion}|${planta}`
+      
+      if (groupedData.has(key)) {
+        const existing = groupedData.get(key)!
+        groupedData.set(key, {
+          ...existing,
+          Abonos: (existing.Abonos || 0) + (row.Abonos || 0),
+          Cargos: (existing.Cargos || 0) + (row.Cargos || 0),
+          Monto: (existing.Monto || 0) + (row.Monto || 0),
+        })
+      } else {
+        groupedData.set(key, { ...row })
+      }
+    })
+    
+    return Array.from(groupedData.values())
+  }
+
   return (
-    <div className="p-6 bg-gray-50 dark:bg-gray-900 w-full max-w-full overflow-auto relative" style={{ maxHeight: "calc(100vh - 4rem)" }}>
-      {/* Header Section */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 bg-green-800 rounded-md flex items-center justify-center text-white font-bold">
-            DC
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
-            REPORTE DE INGRESOS Y EGRESOS
-          </h1>
-        </div>
-        <div className="flex items-center gap-4 flex-wrap">
-          {/* Category Dropdown */}
-          <div className="flex items-center space-x-2 min-w-[180px]">
-            <label htmlFor="category-select" className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-              CATEGORÍA 1
-            </label>
-            <select
-              id="category-select"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="border rounded px-2 py-1 w-full text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
-            >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Unit Price View Toggle */}
-          <Button
-            variant={showUnitPriceView ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowUnitPriceView(!showUnitPriceView)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${
-              showUnitPriceView 
-                ? "bg-blue-600 text-white hover:bg-blue-700" 
-                : "border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800"
-            }`}
-          >
-            <Calculator size={14} /> 
-            {showUnitPriceView ? "Ver Totales" : "Ver Precio por m³"}
-          </Button>
-
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-2">
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleFileUpload}
-              className="hidden"
-              id="excel-upload"
-              disabled={isProcessing}
-            />
-            <label
-              htmlFor="excel-upload"
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-colors text-sm ${
-                isProcessing
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-green-700 text-white hover:bg-green-800"
-              }`}
-            >
-              <Upload size={14} /> 
-              {isProcessing ? "Procesando..." : "Cargar Excel"}
-            </label>
-            <Button
-              variant="outline"
-              size="sm" 
-              onClick={() => setIsDebugModalOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
-              disabled={data.length === 0}
-            >
-              <Eye size={14} /> 
-              Verificar
-            </Button>
-            <Button
-              variant="outline"
-              size="sm" 
-              onClick={() => setShowReportSelector(!showReportSelector)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
-            >
-              <Database size={14} /> 
-              {showReportSelector ? "Ocultar Reportes" : "Ver Reportes"}
-            </Button>
+    <div className="w-full space-y-6">
+      {/* Dashboard Header */}
+      <Card className="p-6">
+        <div className="flex flex-col space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Dashboard Financiero</h1>
+              <p className="text-muted-foreground mt-1">
+                {isMultiSelectMode && accumulatedReports.length > 0
+                  ? `Vista Acumulada: ${accumulatedReports.length} períodos (${accumulatedReports[accumulatedReports.length - 1] ? `${getMonthName(accumulatedReports[accumulatedReports.length - 1].month)} ${accumulatedReports[accumulatedReports.length - 1].year}` : ''} - ${accumulatedReports[0] ? `${getMonthName(accumulatedReports[0].month)} ${accumulatedReports[0].year}` : ''})`
+                  : currentMonth && currentYear 
+                    ? `Período: ${new Date(2024, currentMonth - 1).toLocaleDateString('es-MX', { month: 'long' })} ${currentYear}` 
+                    : "Análisis y visualización de datos financieros"
+                }
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="excel-upload"
+                disabled={isProcessing}
+              />
+              <label
+                htmlFor="excel-upload"
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer border ${
+                  isProcessing
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                    : "bg-background hover:bg-accent hover:text-accent-foreground border-input"
+                }`}
+              >
+                <Upload className="h-4 w-4" />
+                {isProcessing ? "Procesando..." : "Subir Balanza"}
+              </label>
+              
+              <Button
+                variant={isMultiSelectMode ? "default" : "outline"}
+                onClick={() => {
+                  setIsMultiSelectMode(!isMultiSelectMode)
+                  if (!isMultiSelectMode) {
+                    setSelectedReportId(null)
+                    setSelectedReportIds([])
+                    setAccumulatedReports([])
+                  }
+                }}
+                className="flex items-center gap-2"
+              >
+                <Layers className="h-4 w-4" />
+                {isMultiSelectMode ? "Modo Acumulativo" : "Modo Individual"}
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={() => setShowReportSelector(!showReportSelector)}
+                className="flex items-center gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                {showReportSelector ? "Ocultar Reportes" : "Ver Reportes"}
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Volume Data Button */}
       {currentMonth && currentYear && (
@@ -682,22 +832,27 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
               <Calendar size={20} className="text-blue-600 dark:text-blue-400" />
               <div>
                 <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                  Datos de Volumen - {currentMonth}/{currentYear}
+                  Datos de Volumen - {isMultiSelectMode && accumulatedReports.length > 0 ? "Acumulado" : `${currentMonth}/${currentYear}`}
                 </h3>
                 <p className="text-xs text-blue-700 dark:text-blue-300">
-                  {isLoadingVolumes ? "Cargando datos..." : "Configure los metros cúbicos para cada planta"}
+                  {isMultiSelectMode && accumulatedReports.length > 0
+                    ? "Mostrando volúmenes acumulados de múltiples períodos"
+                    : isLoadingVolumes 
+                      ? "Cargando datos..." 
+                      : "Configure los metros cúbicos para cada planta"
+                  }
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Button
                 onClick={() => setIsVolumeModalOpen(true)}
-                disabled={isLoadingVolumes}
+                disabled={isLoadingVolumes || (isMultiSelectMode && accumulatedReports.length > 0)}
                 size="sm"
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
               >
                 <Database size={14} />
-                Configurar Volúmenes
+                {isMultiSelectMode && accumulatedReports.length > 0 ? "Vista Acumulada" : "Configurar Volúmenes"}
               </Button>
             </div>
           </div>
@@ -712,22 +867,27 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
               <DollarSign size={20} className="text-green-600 dark:text-green-400" />
               <div>
                 <h3 className="text-sm font-medium text-green-900 dark:text-green-100">
-                  Ventas en Efectivo - {currentMonth}/{currentYear}
+                  Ventas en Efectivo - {isMultiSelectMode && accumulatedReports.length > 0 ? "Acumulado" : `${currentMonth}/${currentYear}`}
                 </h3>
                 <p className="text-xs text-green-700 dark:text-green-300">
-                  {isLoadingCashSales ? "Cargando datos..." : "Configure las ventas en efectivo (no fiscales)"}
+                  {isMultiSelectMode && accumulatedReports.length > 0
+                    ? "Mostrando ventas en efectivo acumuladas de múltiples períodos"
+                    : isLoadingCashSales 
+                      ? "Cargando datos..." 
+                      : "Configure las ventas en efectivo (no fiscales)"
+                  }
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Button
                 onClick={() => setIsCashSalesModalOpen(true)}
-                disabled={isLoadingCashSales}
+                disabled={isLoadingCashSales || (isMultiSelectMode && accumulatedReports.length > 0)}
                 size="sm"
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
               >
                 <DollarSign size={14} />
-                Configurar Ventas en Efectivo
+                {isMultiSelectMode && accumulatedReports.length > 0 ? "Vista Acumulada" : "Configurar Ventas en Efectivo"}
               </Button>
             </div>
           </div>
@@ -1159,29 +1319,36 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
       {showReportSelector && (
         <div className="mb-6">
           <ReportSelector
+            multiSelect={isMultiSelectMode}
+            selectedReportIds={selectedReportIds}
+            onAccumulateReports={accumulateReportsData}
             onSelectReport={async (report: FinancialReport) => {
-              const reportData = await storageService.getFinancialData(report.id)
-              const convertedData: DebugDataRow[] = reportData.map(row => ({
-                Codigo: row.codigo,
-                Concepto: row.concepto,
-                Abonos: row.abonos,
-                Cargos: row.cargos,
-                Tipo: row.tipo,
-                'Categoria 1': row.categoria_1,
-                'Sub categoria': row.sub_categoria,
-                Clasificacion: row.clasificacion,
-                Monto: row.monto,
-                Planta: row.planta,
-              }))
-              setData(convertedData)
-              onDataUpdate(convertedData)
-              setSelectedReportId(report.id)
-              
-              // Set current month/year and load volume data
-              setCurrentMonth(report.month)
-              setCurrentYear(report.year)
-              await loadVolumeData(report.month, report.year)
-              await loadCashSalesData(report.month, report.year)
+              if (!isMultiSelectMode) {
+                const reportData = await storageService.getFinancialData(report.id)
+                const convertedData: DebugDataRow[] = reportData.map(row => ({
+                  Codigo: row.codigo || '',
+                  Concepto: row.concepto || '',
+                  Abonos: parseFloat(row.abonos?.toString() || '0') || 0,
+                  Cargos: parseFloat(row.cargos?.toString() || '0') || 0,
+                  Tipo: row.tipo || '',
+                  'Categoria 1': row.categoria_1 || '',
+                  'Sub categoria': row.sub_categoria || '',
+                  Clasificacion: row.clasificacion || '',
+                  Monto: parseFloat(row.monto?.toString() || '0') || 0,
+                  Planta: row.planta || 'SIN CLASIFICACION',
+                }))
+                setData(convertedData)
+                onDataUpdate(convertedData)
+                setSelectedReportId(report.id)
+                setAccumulatedReports([])
+                setSelectedReportIds([])
+                
+                // Set current month/year and load volume data
+                setCurrentMonth(report.month)
+                setCurrentYear(report.year)
+                await loadVolumeData(report.month, report.year)
+                await loadCashSalesData(report.month, report.year)
+              }
             }}
                          onDeleteReport={async (reportId: string) => {
                await storageService.deleteReport(reportId)
@@ -1192,6 +1359,60 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
             selectedReportId={selectedReportId || undefined}
           />
         </div>
+      )}
+      
+      {/* Loading Indicator */}
+      {isLoading && (
+        <Card className="p-4 mb-6 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-center gap-2">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900 dark:border-gray-100"></div>
+            <span className="text-gray-700 dark:text-gray-300">Cargando reportes...</span>
+          </div>
+        </Card>
+      )}
+      
+      {/* Accumulated Reports Info */}
+      {isMultiSelectMode && accumulatedReports.length > 0 && !isLoading && (
+        <Card className="p-4 mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div className="flex-1">
+                <h3 className="font-medium text-blue-900 dark:text-blue-100">
+                  Reportes Acumulados ({accumulatedReports.length})
+                </h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  {accumulatedReports.map(r => `${getMonthName(r.month)} ${r.year}`).join(' + ')}
+                </p>
+                <div className="flex gap-4 mt-1 text-xs text-blue-600 dark:text-blue-400">
+                  <span className="flex items-center gap-1">
+                    <Database className="h-3 w-3" />
+                    Incluye volúmenes acumulados
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <DollarSign className="h-3 w-3" />
+                    Incluye ventas en efectivo
+                  </span>
+                </div>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setData([])
+                onDataUpdate([])
+                setAccumulatedReports([])
+                setSelectedReportIds([])
+                setVolumenes({})
+                setCashSalesData({})
+              }}
+              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              Limpiar
+            </Button>
+          </div>
+        </Card>
       )}
     </div>
   )
