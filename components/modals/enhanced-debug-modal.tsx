@@ -25,7 +25,10 @@ import {
   RefreshCw,
   Info,
   Edit,
-  Check
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal
 } from "lucide-react"
 import { 
   CLASSIFICATION_HIERARCHY,
@@ -74,6 +77,18 @@ const formatCurrency = (amount: number) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount)
+}
+
+// Helper function to format currency for mobile (shorter)
+const formatCurrencyMobile = (amount: number) => {
+  const formatted = new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+    notation: 'compact'
+  }).format(amount)
+  return formatted.replace('MX$', '$')
 }
 
 // Helper function to determine correct type from account code
@@ -152,7 +167,7 @@ const filterData = (
   })
 }
 
-// Simple inline editor component - much more streamlined
+// Mobile-optimized inline editor component
 const InlineEditor = React.memo(({ 
   row, 
   onUpdate,
@@ -206,25 +221,31 @@ const InlineEditor = React.memo(({
   }, [])
 
   return (
-    <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-3">
+    <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-3 m-2 rounded-r-lg">
       <div className="flex items-center justify-between mb-3">
-        <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-yellow-800 dark:text-yellow-300`}>
-          Editando: {row.Concepto.substring(0, isMobile ? 30 : 50)}...
-        </span>
-        <div className="flex gap-1">
-          <Button size="sm" variant="ghost" onClick={onCancel} className={`${isMobile ? 'h-8 w-8' : 'h-7'} px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600`}>
-            <X className={`${isMobile ? 'h-4 w-4' : 'h-3 w-3'}`} />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-yellow-800 dark:text-yellow-300 truncate">
+            {row.Concepto}
+          </div>
+          <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+            {row.Codigo} • {formatCurrencyMobile(row.Monto)}
+          </div>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <Button size="sm" variant="ghost" onClick={onCancel} className="h-8 w-8 p-0 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600">
+            <X className="h-4 w-4" />
           </Button>
-          <Button size="sm" onClick={handleQuickSave} className={`${isMobile ? 'h-8 w-8' : 'h-7'} px-2 bg-green-600 hover:bg-green-700 text-white`}>
-            <Check className={`${isMobile ? 'h-4 w-4' : 'h-3 w-3'}`} />
+          <Button size="sm" onClick={handleQuickSave} className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700 text-white">
+            <Check className="h-4 w-4" />
           </Button>
         </div>
       </div>
       
-      <div className={`${isMobile ? 'grid grid-cols-1 gap-2' : 'grid grid-cols-2 md:grid-cols-4 gap-3'} text-sm`}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
         <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
           <Select value={localRow.Tipo} onValueChange={(value) => handleFieldChange('Tipo', value)}>
-            <SelectTrigger className={`${isMobile ? 'h-10' : 'h-8'} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100`}>
+            <SelectTrigger className="h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -236,12 +257,13 @@ const InlineEditor = React.memo(({
         </div>
         
         <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sub categoría</label>
           <Select 
             value={localRow['Sub categoria']} 
             onValueChange={(value) => handleFieldChange('Sub categoria', value)}
             disabled={!correctType || correctType === "Indefinido"}
           >
-            <SelectTrigger className={`${isMobile ? 'h-10' : 'h-8'} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100`}>
+            <SelectTrigger className="h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Sub categoría" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -254,12 +276,13 @@ const InlineEditor = React.memo(({
         </div>
         
         <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Clasificación</label>
           <Select 
             value={localRow.Clasificacion} 
             onValueChange={(value) => handleFieldChange('Clasificacion', value)}
             disabled={!localRow['Sub categoria'] || localRow['Sub categoria'] === "Sin Subcategoría"}
           >
-            <SelectTrigger className={`${isMobile ? 'h-10' : 'h-8'} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100`}>
+            <SelectTrigger className="h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Clasificación" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -272,12 +295,13 @@ const InlineEditor = React.memo(({
         </div>
         
         <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría 1</label>
           <Select 
             value={localRow['Categoria 1']} 
             onValueChange={(value) => handleFieldChange('Categoria 1', value)}
             disabled={!localRow.Clasificacion || localRow.Clasificacion === "Sin Clasificación"}
           >
-            <SelectTrigger className={`${isMobile ? 'h-10' : 'h-8'} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100`}>
+            <SelectTrigger className="h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Categoría 1" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -289,15 +313,88 @@ const InlineEditor = React.memo(({
           </Select>
         </div>
       </div>
-      
-      <div className={`mt-2 ${isMobile ? 'text-xs' : 'text-xs'} text-gray-600 dark:text-gray-400`}>
-        {formatCurrency(row.Monto)} • {row.Codigo} • {row.Planta}
-      </div>
     </div>
   )
 })
 
 InlineEditor.displayName = 'InlineEditor'
+
+// Mobile-optimized row component
+const MobileDataRow = React.memo(({ 
+  row, 
+  isEditing, 
+  onEdit, 
+  onApplySuggestion,
+  suggestion,
+  status
+}: {
+  row: DebugDataRow
+  isEditing: boolean
+  onEdit: () => void
+  onApplySuggestion: () => void
+  suggestion: any
+  status: any
+}) => {
+  const statusIcon = {
+    'classified': <CheckCircle className="h-4 w-4 text-green-500" />,
+    'partial': <AlertTriangle className="h-4 w-4 text-orange-500" />,
+    'unclassified': <X className="h-4 w-4 text-red-500" />,
+    'hierarchy': <Info className="h-4 w-4 text-blue-500" />
+  }[status.status]
+
+  return (
+    <div className={`border-b border-gray-200 dark:border-gray-700 p-3 ${isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'}`}>
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {statusIcon}
+          <Badge variant={row.Tipo === 'Ingresos' ? 'default' : row.Tipo === 'Egresos' ? 'destructive' : 'secondary'} className="text-xs">
+            {row.Tipo}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          {suggestion && status.status !== 'classified' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onApplySuggestion}
+              className="h-8 w-8 p-0"
+              title="Aplicar sugerencia automática"
+            >
+              <Target className="h-3 w-3" />
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onEdit}
+            className="h-8 w-8 p-0"
+          >
+            <Edit className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+      
+      <div className="space-y-1">
+        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2">
+          {row.Concepto}
+        </div>
+        <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+          <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">
+            {row.Codigo}
+          </code>
+          <span className={`font-mono font-medium ${row.Monto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {formatCurrencyMobile(row.Monto)}
+          </span>
+        </div>
+        <div className="text-xs text-gray-500 dark:text-gray-400">
+          {row['Categoria 1'] && row['Categoria 1'] !== 'Sin Categoría' ? row['Categoria 1'] : 'Sin categoría'}
+        </div>
+      </div>
+    </div>
+  )
+})
+
+MobileDataRow.displayName = 'MobileDataRow'
 
 export default function EnhancedDebugModal({
   isOpen,
@@ -330,7 +427,7 @@ export default function EnhancedDebugModal({
   const [editingRow, setEditingRow] = useState<string | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(50)
+  const [itemsPerPage, setItemsPerPage] = useState(25) // Reduced for mobile
   const [localData, setLocalData] = useState(data)
   
   const isMobile = useIsMobile()
@@ -471,80 +568,76 @@ export default function EnhancedDebugModal({
 
   // Mobile-specific handlers
   const handleMobileRowSelect = useCallback((rowId: string) => {
-    if (isMobile) {
-      setEditingRow(editingRow === rowId ? null : rowId)
-    }
-  }, [isMobile, editingRow])
+    setEditingRow(editingRow === rowId ? null : rowId)
+  }, [editingRow])
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`${isMobile ? 'max-w-[98vw] max-h-[98vh] w-[98vw]' : 'max-w-[95vw] max-h-[95vh] w-[95vw]'} p-0 overflow-hidden`}>
-        <div className="flex flex-col h-full max-h-[98vh]">
+      <DialogContent className={`${isMobile ? 'max-w-[100vw] max-h-[100vh] w-[100vw] h-[100vh] rounded-none' : 'max-w-[95vw] max-h-[95vh] w-[95vw]'} p-0 overflow-hidden`}>
+        <div className="flex flex-col h-full">
           {/* Header */}
-          <div className={`${isMobile ? 'p-4' : 'p-6'} border-b bg-white dark:bg-gray-800 flex-shrink-0`}>
-            <DialogHeader className="space-y-2">
+          <div className={`${isMobile ? 'px-4 py-3' : 'p-6'} border-b bg-white dark:bg-gray-800 flex-shrink-0`}>
+            <DialogHeader className="space-y-1">
               <DialogTitle className={`flex items-center gap-2 ${isMobile ? 'text-lg' : 'text-xl'}`}>
                 <Target className={`${isMobile ? 'h-5 w-5' : 'h-6 w-6'} text-blue-600`} />
-                Debug de Datos Financieros
+                Debug de Datos
               </DialogTitle>
               <DialogDescription className={`${isMobile ? 'text-sm' : 'text-base'}`}>
-                Verificar, editar y clasificar datos del archivo Excel
+                Verificar, editar y clasificar datos
               </DialogDescription>
             </DialogHeader>
           </div>
 
           {/* Stats Bar */}
-          <div className={`${isMobile ? 'p-3' : 'p-4'} bg-gray-50 dark:bg-gray-900 border-b flex-shrink-0`}>
-            <div className={`${isMobile ? 'grid grid-cols-2 gap-2' : 'flex items-center justify-between'}`}>
-              <div className={`${isMobile ? 'grid grid-cols-2 gap-2 col-span-2' : 'flex items-center gap-6'}`}>
-                <div className={`${isMobile ? 'text-center' : 'text-left'}`}>
-                  <div className={`${isMobile ? 'text-xl font-bold' : 'text-2xl font-bold'} text-blue-600`}>{stats.total}</div>
-                  <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Total</div>
-                </div>
-                <div className={`${isMobile ? 'text-center' : 'text-left'}`}>
-                  <div className={`${isMobile ? 'text-xl font-bold' : 'text-2xl font-bold'} text-green-600`}>{stats.classified}</div>
-                  <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Clasificados</div>
-                </div>
-                <div className={`${isMobile ? 'text-center' : 'text-left'}`}>
-                  <div className={`${isMobile ? 'text-xl font-bold' : 'text-2xl font-bold'} text-orange-600`}>{stats.unclassified}</div>
-                  <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Sin Clasificar</div>
-                </div>
-                <div className={`${isMobile ? 'text-center' : 'text-left'}`}>
-                  <div className={`${isMobile ? 'text-xl font-bold' : 'text-2xl font-bold'} text-gray-600`}>{stats.hierarchy}</div>
-                  <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Jerárquicos</div>
-                </div>
+          <div className={`${isMobile ? 'px-4 py-2' : 'p-4'} bg-gray-50 dark:bg-gray-900 border-b flex-shrink-0`}>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div>
+                <div className={`${isMobile ? 'text-lg font-bold' : 'text-2xl font-bold'} text-blue-600`}>{stats.total}</div>
+                <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Total</div>
               </div>
-              
-              {!isMobile && hasUnsavedChanges && (
-                <div className="flex items-center gap-2">
-                  <Badge variant="destructive">
-                    <Edit className="h-3 w-3 mr-1" />
-                    Cambios sin guardar
-                  </Badge>
-                </div>
-              )}
+              <div>
+                <div className={`${isMobile ? 'text-lg font-bold' : 'text-2xl font-bold'} text-green-600`}>{stats.classified}</div>
+                <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Clasificados</div>
+              </div>
+              <div>
+                <div className={`${isMobile ? 'text-lg font-bold' : 'text-2xl font-bold'} text-orange-600`}>{stats.unclassified}</div>
+                <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Sin clasificar</div>
+              </div>
+              <div>
+                <div className={`${isMobile ? 'text-lg font-bold' : 'text-2xl font-bold'} text-gray-600`}>{stats.hierarchy}</div>
+                <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Jerárquicos</div>
+              </div>
             </div>
+            
+            {isMobile && hasUnsavedChanges && (
+              <div className="mt-2 flex justify-center">
+                <Badge variant="destructive" className="text-xs">
+                  <Edit className="h-3 w-3 mr-1" />
+                  Cambios sin guardar
+                </Badge>
+              </div>
+            )}
           </div>
 
           {/* Controls */}
-          <div className={`${isMobile ? 'p-3' : 'p-4'} bg-white dark:bg-gray-800 border-b flex-shrink-0`}>
-            <div className={`${isMobile ? 'space-y-3' : 'flex items-center justify-between gap-4'}`}>
-              {/* Search and Filter */}
-              <div className={`${isMobile ? 'space-y-2' : 'flex items-center gap-4'}`}>
-                <div className={`${isMobile ? '' : 'flex items-center gap-2'}`}>
-                  <Search className={`${isMobile ? 'hidden' : 'h-4 w-4'} text-gray-400`} />
-                  <Input
-                    placeholder={isMobile ? "Buscar..." : "Buscar por código o concepto..."}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className={`${isMobile ? 'w-full h-11 text-base' : 'w-64'}`}
-                  />
-                </div>
-                
-                <div className={`${isMobile ? '' : 'flex items-center gap-2'}`}>
-                  <Filter className={`${isMobile ? 'hidden' : 'h-4 w-4'} text-gray-400`} />
+          <div className={`${isMobile ? 'px-4 py-3' : 'p-4'} bg-white dark:bg-gray-800 border-b flex-shrink-0`}>
+            <div className="space-y-3">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por código o concepto..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={`pl-10 ${isMobile ? 'h-12 text-base' : 'h-10'}`}
+                />
+              </div>
+              
+              {/* Filter and Actions */}
+              <div className={`${isMobile ? 'flex gap-2' : 'flex items-center justify-between gap-4'}`}>
+                <div className={`${isMobile ? 'flex-1' : 'flex-none'}`}>
                   <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className={`${isMobile ? 'w-full h-11 text-base' : 'w-40'}`}>
+                    <SelectTrigger className={`${isMobile ? 'h-12 text-base' : 'w-40'}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -556,162 +649,186 @@ export default function EnhancedDebugModal({
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
 
-              {/* Action Buttons */}
-              <div className={`${isMobile ? 'flex gap-2' : 'flex items-center gap-2'}`}>
-                {hasUnsavedChanges && (
-                  <Badge variant="destructive" className={`${isMobile ? 'text-xs px-2 py-1' : ''}`}>
-                    <Edit className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-3 w-3 mr-1'}`} />
-                    {isMobile ? 'Cambios' : 'Cambios sin guardar'}
-                  </Badge>
-                )}
-                
-                <Button
-                  variant="outline"
-                  size={isMobile ? "default" : "default"}
-                  onClick={handleResetChanges}
-                  disabled={!hasUnsavedChanges}
-                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
-                >
-                  <RefreshCw className={`${isMobile ? 'h-4 w-4 mr-2' : 'h-4 w-4 mr-2'}`} />
-                  {isMobile ? 'Reiniciar' : 'Reiniciar'}
-                </Button>
-                
-                <Button
-                  onClick={handleSaveChanges}
-                  disabled={!hasUnsavedChanges}
-                  size={isMobile ? "default" : "default"}
-                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
-                >
-                  <Save className={`${isMobile ? 'h-4 w-4 mr-2' : 'h-4 w-4 mr-2'}`} />
-                  {isMobile ? 'Guardar' : 'Guardar'}
-                </Button>
+                {/* Action Buttons */}
+                <div className={`${isMobile ? 'flex gap-2' : 'flex items-center gap-2'}`}>
+                  <Button
+                    variant="outline"
+                    size={isMobile ? "default" : "default"}
+                    onClick={handleResetChanges}
+                    disabled={!hasUnsavedChanges}
+                    className={`${isMobile ? 'h-12 px-4' : ''}`}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Reiniciar
+                  </Button>
+                  
+                  <Button
+                    onClick={handleSaveChanges}
+                    disabled={!hasUnsavedChanges}
+                    size={isMobile ? "default" : "default"}
+                    className={`${isMobile ? 'h-12 px-4' : ''}`}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Guardar
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Table */}
+          {/* Data Display */}
           <div className="flex-1 overflow-auto">
-            <div className={`${isMobile ? 'overflow-x-auto' : 'overflow-auto'}`}>
-              <table ref={tableRef} className={`w-full ${isMobile ? 'min-w-[640px]' : 'min-w-0'} border-collapse`}>
-                <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
-                  <tr>
-                    <th className={`${isMobile ? 'px-2 py-3 w-12' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      Estado
-                    </th>
-                    <th className={`${isMobile ? 'px-2 py-3 w-20' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
-                        onClick={() => handleSort('Codigo')}>
-                      <div className="flex items-center gap-1">
-                        Código
-                        <ArrowUpDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
-                      </div>
-                    </th>
-                    <th className={`${isMobile ? 'px-2 py-3 min-w-[140px]' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
-                        onClick={() => handleSort('Concepto')}>
-                      <div className="flex items-center gap-1">
-                        Concepto
-                        <ArrowUpDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
-                      </div>
-                    </th>
-                    <th className={`${isMobile ? 'px-2 py-3 w-20' : 'px-4 py-3'} text-right border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
-                        onClick={() => handleSort('Monto')}>
-                      <div className="flex items-center justify-end gap-1">
-                        Monto
-                        <ArrowUpDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
-                      </div>
-                    </th>
-                    <th className={`${isMobile ? 'px-2 py-3 w-20' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
-                        onClick={() => handleSort('Tipo')}>
-                      <div className="flex items-center gap-1">
-                        Tipo
-                        <ArrowUpDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
-                      </div>
-                    </th>
-                    <th className={`${isMobile ? 'px-2 py-3 w-24' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      Categoría 1
-                    </th>
-                    <th className={`${isMobile ? 'px-2 py-3 w-16' : 'px-4 py-3'} text-center border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedData.map((row, index) => {
-                    const status = getClassificationStatus(row)
-                    const isEditing = editingRow === row.Codigo
-                    const suggestion = getAutoSuggestion(row)
-                    
-                    return (
-                      <tr 
-                        key={row.Codigo} 
-                        className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 ${isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${isMobile ? 'cursor-pointer' : ''}`}
-                        onClick={() => isMobile && handleMobileRowSelect(row.Codigo)}
-                      >
-                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top`}>
-                          <div className="flex items-center gap-2">
-                            {status.status === 'classified' && <CheckCircle className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4'} text-green-500`} />}
-                            {status.status === 'partial' && <AlertTriangle className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4'} text-orange-500`} />}
-                            {status.status === 'unclassified' && <X className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4'} text-red-500`} />}
-                            {status.status === 'hierarchy' && <Info className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4'} text-blue-500`} />}
-                          </div>
-                        </td>
-                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top`}>
-                          <code className={`${isMobile ? 'text-xs' : 'text-sm'} bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded block`}>
-                            {isMobile ? row.Codigo.substring(0, 8) + '...' : row.Codigo}
-                          </code>
-                        </td>
-                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top`}>
-                          <div className={`${isMobile ? 'text-xs' : 'text-sm'} ${isMobile ? 'max-w-[140px]' : 'max-w-xs'} break-words`} title={row.Concepto}>
-                            {isMobile ? row.Concepto.substring(0, 40) + (row.Concepto.length > 40 ? '...' : '') : row.Concepto}
-                          </div>
-                        </td>
-                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top text-right`}>
-                          <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-mono ${row.Monto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {isMobile ? formatCurrency(row.Monto).replace('MX$', '$') : formatCurrency(row.Monto)}
-                          </div>
-                        </td>
-                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top`}>
-                          {isEditing ? (
-                            <Select
-                              value={row.Tipo}
-                              onValueChange={(value) => handleRowUpdate(row.Codigo, 'Tipo', value)}
-                            >
-                              <SelectTrigger className={`${isMobile ? 'w-20 h-9 text-xs' : 'w-32 h-8 text-sm'}`}>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Ingresos">Ingresos</SelectItem>
-                                <SelectItem value="Egresos">Egresos</SelectItem>
-                                <SelectItem value="Indefinido">Indefinido</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Badge variant={row.Tipo === 'Ingresos' ? 'default' : row.Tipo === 'Egresos' ? 'destructive' : 'secondary'} className={`${isMobile ? 'text-xs px-1 py-0.5' : ''}`}>
-                              {isMobile ? row.Tipo.substring(0, 3) : row.Tipo}
-                            </Badge>
-                          )}
-                        </td>
-                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top`}>
-                          {isEditing ? (
-                            <Input
-                              value={row['Categoria 1']}
-                              onChange={(e) => handleRowUpdate(row.Codigo, 'Categoria 1', e.target.value)}
-                              className={`${isMobile ? 'w-24 h-9 text-xs' : 'w-32 h-8 text-sm'}`}
-                              placeholder="Categoría..."
-                            />
-                          ) : (
-                            <div className={`${isMobile ? 'text-xs' : 'text-sm'} ${isMobile ? 'max-w-[80px]' : 'max-w-xs'} break-words`} title={row['Categoria 1']}>
-                              {isMobile ? 
-                                (row['Categoria 1'] || 'Sin categoría').substring(0, 10) + ((row['Categoria 1'] || 'Sin categoría').length > 10 ? '...' : '') :
-                                row['Categoria 1'] || 'Sin categoría'
-                              }
+            {isMobile ? (
+              // Mobile Card Layout
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {paginatedData.map((row) => {
+                  const status = getClassificationStatus(row)
+                  const isEditing = editingRow === row.Codigo
+                  const suggestion = getAutoSuggestion(row)
+                  
+                  return (
+                    <div key={row.Codigo}>
+                      <MobileDataRow
+                        row={row}
+                        isEditing={isEditing}
+                        onEdit={() => handleMobileRowSelect(row.Codigo)}
+                        onApplySuggestion={() => applyAutoSuggestion(row.Codigo)}
+                        suggestion={suggestion}
+                        status={status}
+                      />
+                      {isEditing && (
+                        <InlineEditor
+                          row={row}
+                          onUpdate={(updates) => {
+                            Object.entries(updates).forEach(([field, value]) => {
+                              handleRowUpdate(row.Codigo, field as keyof DebugDataRow, value)
+                            })
+                            setEditingRow(null)
+                          }}
+                          onCancel={() => setEditingRow(null)}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              // Desktop Table Layout
+              <div className="overflow-auto">
+                <table ref={tableRef} className="w-full border-collapse">
+                  <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-3 text-left border-b font-medium text-gray-600 dark:text-gray-300 text-sm">
+                        Estado
+                      </th>
+                      <th className="px-4 py-3 text-left border-b font-medium text-gray-600 dark:text-gray-300 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('Codigo')}>
+                        <div className="flex items-center gap-1">
+                          Código
+                          <ArrowUpDown className="h-4 w-4" />
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-left border-b font-medium text-gray-600 dark:text-gray-300 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('Concepto')}>
+                        <div className="flex items-center gap-1">
+                          Concepto
+                          <ArrowUpDown className="h-4 w-4" />
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-right border-b font-medium text-gray-600 dark:text-gray-300 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('Monto')}>
+                        <div className="flex items-center justify-end gap-1">
+                          Monto
+                          <ArrowUpDown className="h-4 w-4" />
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-left border-b font-medium text-gray-600 dark:text-gray-300 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('Tipo')}>
+                        <div className="flex items-center gap-1">
+                          Tipo
+                          <ArrowUpDown className="h-4 w-4" />
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-left border-b font-medium text-gray-600 dark:text-gray-300 text-sm">
+                        Categoría 1
+                      </th>
+                      <th className="px-4 py-3 text-center border-b font-medium text-gray-600 dark:text-gray-300 text-sm">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((row) => {
+                      const status = getClassificationStatus(row)
+                      const isEditing = editingRow === row.Codigo
+                      const suggestion = getAutoSuggestion(row)
+                      
+                      return (
+                        <tr 
+                          key={row.Codigo} 
+                          className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 ${isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                        >
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex items-center gap-2">
+                              {status.status === 'classified' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                              {status.status === 'partial' && <AlertTriangle className="h-4 w-4 text-orange-500" />}
+                              {status.status === 'unclassified' && <X className="h-4 w-4 text-red-500" />}
+                              {status.status === 'hierarchy' && <Info className="h-4 w-4 text-blue-500" />}
                             </div>
-                          )}
-                        </td>
-                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top text-center`}>
-                          <div className={`${isMobile ? 'flex flex-col gap-1' : 'flex items-center gap-2'}`}>
-                            {!isMobile && (
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded block">
+                              {row.Codigo}
+                            </code>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <div className="text-sm max-w-xs break-words" title={row.Concepto}>
+                              {row.Concepto}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top text-right">
+                            <div className={`text-sm font-mono ${row.Monto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(row.Monto)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            {isEditing ? (
+                              <Select
+                                value={row.Tipo}
+                                onValueChange={(value) => handleRowUpdate(row.Codigo, 'Tipo', value)}
+                              >
+                                <SelectTrigger className="w-32 h-8 text-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Ingresos">Ingresos</SelectItem>
+                                  <SelectItem value="Egresos">Egresos</SelectItem>
+                                  <SelectItem value="Indefinido">Indefinido</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Badge variant={row.Tipo === 'Ingresos' ? 'default' : row.Tipo === 'Egresos' ? 'destructive' : 'secondary'}>
+                                {row.Tipo}
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            {isEditing ? (
+                              <Input
+                                value={row['Categoria 1']}
+                                onChange={(e) => handleRowUpdate(row.Codigo, 'Categoria 1', e.target.value)}
+                                className="w-32 h-8 text-sm"
+                                placeholder="Categoría..."
+                              />
+                            ) : (
+                              <div className="text-sm max-w-xs break-words" title={row['Categoria 1']}>
+                                {row['Categoria 1'] || 'Sin categoría'}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 align-top text-center">
+                            <div className="flex items-center justify-center gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -720,66 +837,57 @@ export default function EnhancedDebugModal({
                               >
                                 {isEditing ? <Check className="h-3 w-3" /> : <Edit className="h-3 w-3" />}
                               </Button>
-                            )}
-                            
-                            {suggestion && status.status !== 'classified' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => applyAutoSuggestion(row.Codigo)}
-                                className={`${isMobile ? 'h-8 w-8 p-0' : 'h-8 w-8 p-0'}`}
-                                title="Aplicar sugerencia automática"
-                              >
-                                <Target className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                              
+                              {suggestion && status.status !== 'classified' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => applyAutoSuggestion(row.Codigo)}
+                                  className="h-8 w-8 p-0"
+                                  title="Aplicar sugerencia automática"
+                                >
+                                  <Target className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          {/* Mobile Edit Panel */}
-          {isMobile && editingRow && (
-            <div className="flex-shrink-0 border-t bg-white dark:bg-gray-800">
-              <InlineEditor
-                row={paginatedData.find(r => r.Codigo === editingRow)!}
-                onUpdate={(updates) => {
-                  Object.entries(updates).forEach(([field, value]) => {
-                    handleRowUpdate(editingRow, field as keyof DebugDataRow, value)
-                  })
-                  setEditingRow(null)
-                }}
-                onCancel={() => setEditingRow(null)}
-              />
-            </div>
-          )}
-
           {/* Pagination */}
-          <div className={`${isMobile ? 'p-3' : 'p-4'} border-t bg-white dark:bg-gray-800 flex-shrink-0`}>
-            <div className={`${isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}`}>
+          <div className={`${isMobile ? 'px-4 py-3' : 'p-4'} border-t bg-white dark:bg-gray-800 flex-shrink-0`}>
+            <div className={`${isMobile ? 'space-y-2' : 'flex items-center justify-between'}`}>
               <div className={`${isMobile ? 'text-sm text-center' : 'text-sm'} text-gray-600`}>
-                Mostrando {Math.min((currentPage - 1) * itemsPerPage + 1, filteredAndSortedData.length)} a{' '}
-                {Math.min(currentPage * itemsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length} registros
+                {filteredAndSortedData.length > 0 ? (
+                  <>
+                    Mostrando {Math.min((currentPage - 1) * itemsPerPage + 1, filteredAndSortedData.length)} a{' '}
+                    {Math.min(currentPage * itemsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length}
+                  </>
+                ) : (
+                  'No hay registros'
+                )}
               </div>
               
-              <div className={`${isMobile ? 'flex justify-between items-center' : 'flex items-center gap-2'}`}>
+              <div className={`${isMobile ? 'flex justify-center items-center gap-2' : 'flex items-center gap-2'}`}>
                 <Button
                   variant="outline"
                   size={isMobile ? "default" : "sm"}
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
+                  className={`${isMobile ? 'h-12 px-4' : ''}`}
                 >
-                  Anterior
+                  <ChevronLeft className="h-4 w-4" />
+                  {!isMobile && 'Anterior'}
                 </Button>
                 
-                <div className={`${isMobile ? 'text-sm px-4' : 'text-sm'} text-gray-600`}>
-                  Página {currentPage} de {totalPages}
+                <div className={`${isMobile ? 'text-sm px-4' : 'text-sm px-2'} text-gray-600`}>
+                  {currentPage} / {totalPages}
                 </div>
                 
                 <Button
@@ -787,27 +895,28 @@ export default function EnhancedDebugModal({
                   size={isMobile ? "default" : "sm"}
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
-                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
+                  className={`${isMobile ? 'h-12 px-4' : ''}`}
                 >
-                  Siguiente
+                  {!isMobile && 'Siguiente'}
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className={`${isMobile ? 'p-3' : 'p-4'} border-t bg-gray-50 dark:bg-gray-900 flex-shrink-0`}>
-            <div className={`${isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}`}>
+          <div className={`${isMobile ? 'px-4 py-3' : 'p-4'} border-t bg-gray-50 dark:bg-gray-900 flex-shrink-0`}>
+            <div className={`${isMobile ? 'space-y-2' : 'flex items-center justify-between'}`}>
               <div className={`${isMobile ? 'order-2' : ''}`}>
                 {validationSummary && onReturnToValidation && (
                   <Button
                     variant="outline"
                     onClick={onReturnToValidation}
                     size={isMobile ? "default" : "default"}
-                    className={`${isMobile ? 'w-full h-11 text-base' : ''}`}
+                    className={`${isMobile ? 'w-full h-12 text-base' : ''}`}
                   >
-                    <ArrowUpDown className={`${isMobile ? 'h-4 w-4 mr-2' : 'h-4 w-4 mr-2'}`} />
-                    {isMobile ? 'Volver a Validación' : 'Volver a Validación'}
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                    Volver a Validación
                   </Button>
                 )}
               </div>
@@ -817,7 +926,7 @@ export default function EnhancedDebugModal({
                   variant="outline"
                   onClick={onClose}
                   size={isMobile ? "default" : "default"}
-                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
+                  className={`${isMobile ? 'flex-1 h-12 text-base' : ''}`}
                 >
                   Cerrar
                 </Button>
@@ -826,10 +935,10 @@ export default function EnhancedDebugModal({
                   onClick={handleSaveChanges}
                   disabled={!hasUnsavedChanges}
                   size={isMobile ? "default" : "default"}
-                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
+                  className={`${isMobile ? 'flex-1 h-12 text-base' : ''}`}
                 >
-                  <Save className={`${isMobile ? 'h-4 w-4 mr-2' : 'h-4 w-4 mr-2'}`} />
-                  {isMobile ? 'Guardar y Cerrar' : 'Guardar y Cerrar'}
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar
                 </Button>
               </div>
             </div>
