@@ -809,370 +809,372 @@ export default function EnhancedDebugModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-[95vw] md:max-w-7xl max-h-[95vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 p-0 md:p-6">
-        <DialogHeader className="p-4 md:p-0">
-          <DialogTitle className="flex flex-col md:flex-row md:items-center justify-between gap-2 text-gray-900 dark:text-gray-100">
-            <div className="flex items-center gap-3">
-              <Target className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <span className="text-base md:text-lg">Validación de Totales</span>
-            </div>
-            <Badge variant={stats.validationStatus === 'valid' ? "default" : "destructive"} className="w-fit text-xs md:text-sm">
-              {stats.validationStatus === 'valid' ? 'Totales OK' : 'Verificar'}
-            </Badge>
-          </DialogTitle>
-          <DialogDescription className="text-gray-600 dark:text-gray-300 text-sm md:text-base">
-            Revisa y ajusta las clasificaciones para que coincidan con las metas.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Mobile view indicator */}
-        <div className="md:hidden px-4 pb-2">
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <Smartphone className="h-3 w-3" />
-            <span>Vista móvil optimizada</span>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-hidden px-4 md:px-0">
-          {/* Hierarchy Validation Summary - Responsive */}
-          {validationSummary && (
-            <Alert className={`mb-4 ${validationSummary.isValid ? "border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20" : "border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/20"}`}>
-              <Target className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-              <AlertDescription className="text-gray-700 dark:text-gray-300">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 text-xs md:text-sm">
-                  <div className="space-y-1">
-                    <span className="flex items-center gap-2 font-medium">
-                      <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 dark:text-green-400" />
-                      Ingresos
-                    </span>
-                    <div className="pl-5 space-y-0.5">
-                      <div>Meta: {formatCurrencyShort(validationSummary.hierarchyTotals.ingresos)}</div>
-                      <div>Actual: {formatCurrencyShort(validationSummary.classifiedTotals.ingresos)}</div>
-                      <div className={`font-medium ${Math.abs(validationSummary.variance.ingresos) <= 0.01 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        Δ: {formatCurrencyShort(validationSummary.variance.ingresos)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="flex items-center gap-2 font-medium">
-                      <TrendingDown className="h-3 w-3 md:h-4 md:w-4 text-red-600 dark:text-red-400" />
-                      Egresos
-                    </span>
-                    <div className="pl-5 space-y-0.5">
-                      <div>Meta: {formatCurrencyShort(validationSummary.hierarchyTotals.egresos)}</div>
-                      <div>Actual: {formatCurrencyShort(validationSummary.classifiedTotals.egresos)}</div>
-                      <div className={`font-medium ${Math.abs(validationSummary.variance.egresos) <= 0.01 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        Δ: {formatCurrencyShort(validationSummary.variance.egresos)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Statistics Cards - Responsive grid */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4">
-            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-              <CardContent className="p-2 md:p-3">
-                <div className="text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400">{stats.totalDetail}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Registros</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-              <CardContent className="p-2 md:p-3">
-                <div className="text-lg md:text-xl font-bold text-green-600 dark:text-green-400">{stats.classified}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Clasificados</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-              <CardContent className="p-2 md:p-3">
-                <div className="text-lg md:text-xl font-bold text-yellow-600 dark:text-yellow-400">{stats.partial}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Parciales</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-              <CardContent className="p-2 md:p-3">
-                <div className="text-lg md:text-xl font-bold text-orange-600 dark:text-orange-400">{stats.unclassified}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Sin Clasificar</div>
-              </CardContent>
-            </Card>
-            <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 col-span-2 md:col-span-1">
-              <CardContent className="p-2 md:p-3">
-                <div className="text-xs md:text-sm font-bold text-purple-600 dark:text-purple-400">
-                  {formatCurrencyShort(stats.unclassifiedAmount)}
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Pendiente</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Mobile filters toggle */}
-          <div className="md:hidden mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowMobileFilters(!showMobileFilters)}
-              className="w-full"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              {showMobileFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
-            </Button>
-          </div>
-
-          {/* Search and Filter Controls - Responsive */}
-          <div className={`${showMobileFilters ? 'block' : 'hidden'} md:block space-y-3 md:space-y-0 md:flex md:flex-row md:gap-4 mb-4`}>
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
-                <Input
-                  placeholder="Buscar..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10 md:h-9 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                />
+      <DialogContent className="w-full h-full max-h-[100vh] md:max-h-[95vh] max-w-full md:max-w-7xl overflow-hidden flex flex-col bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 p-0 md:p-6 m-0 md:m-auto rounded-none md:rounded-lg">
+        <div className="flex flex-col h-full overflow-hidden">
+          <DialogHeader className="flex-shrink-0 p-4 md:p-0 border-b md:border-0 border-gray-200 dark:border-gray-700">
+            <DialogTitle className="flex flex-col md:flex-row md:items-center justify-between gap-2 text-gray-900 dark:text-gray-100">
+              <div className="flex items-center gap-3">
+                <Target className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span className="text-base md:text-lg">Validación de Totales</span>
               </div>
+              <Badge variant={stats.validationStatus === 'valid' ? "default" : "destructive"} className="w-fit text-xs md:text-sm">
+                {stats.validationStatus === 'valid' ? 'Totales OK' : 'Verificar'}
+              </Badge>
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-300 text-sm md:text-base">
+              Revisa y ajusta las clasificaciones para que coincidan con las metas.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Mobile view indicator */}
+          <div className="md:hidden px-4 py-2 flex-shrink-0">
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <Smartphone className="h-3 w-3" />
+              <span>Vista móvil optimizada</span>
             </div>
-            <Select value={selectedFilter} onValueChange={setSelectedFilter}>
-              <SelectTrigger className="w-full md:w-64 h-10 md:h-9 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-                <SelectItem value="unclassified" className="text-gray-900 dark:text-gray-100">🔍 Sin Clasificar</SelectItem>
-                <SelectItem value="partial" className="text-gray-900 dark:text-gray-100">⚡ Parcial</SelectItem>
-                <SelectItem value="classified" className="text-gray-900 dark:text-gray-100">✅ Clasificados</SelectItem>
-                <SelectItem value="hierarchy" className="text-gray-900 dark:text-gray-100">📊 Totales</SelectItem>
-                <SelectItem value="detail" className="text-gray-900 dark:text-gray-100">📋 Detalles</SelectItem>
-                <SelectItem value="ingresos" className="text-gray-900 dark:text-gray-100">💰 Ingresos</SelectItem>
-                <SelectItem value="egresos" className="text-gray-900 dark:text-gray-100">💸 Egresos</SelectItem>
-                <SelectItem value="all" className="text-gray-900 dark:text-gray-100">🗂️ Todos</SelectItem>
-              </SelectContent>
-            </Select>
-            {selectedRows.size > 0 && (
-              <Button onClick={handleBulkClassify} variant="outline" className="w-full md:w-auto h-10 md:h-9 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Auto ({selectedRows.size})
-              </Button>
-            )}
           </div>
 
-          {/* Info about allowing unclassified items - Mobile optimized */}
-          {selectedFilter === "unclassified" && (
-            <Alert className="mb-4 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
-              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <AlertDescription className="text-xs md:text-sm text-gray-700 dark:text-gray-300">
-                <strong>Nota:</strong> No todos los elementos necesitan clasificación. 
-                <span className="hidden md:inline"> Algunos registros pueden permanecer sin clasificar si no forman parte del sistema de clasificación principal.</span>
-              </AlertDescription>
-            </Alert>
-          )}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-0">
+            {/* Hierarchy Validation Summary - Responsive */}
+            {validationSummary && (
+              <Alert className={`mb-4 ${validationSummary.isValid ? "border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20" : "border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/20"}`}>
+                <Target className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                <AlertDescription className="text-gray-700 dark:text-gray-300">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 text-xs md:text-sm">
+                    <div className="space-y-1">
+                      <span className="flex items-center gap-2 font-medium">
+                        <TrendingUp className="h-3 w-3 md:h-4 md:w-4 text-green-600 dark:text-green-400" />
+                        Ingresos
+                      </span>
+                      <div className="pl-5 space-y-0.5">
+                        <div>Meta: {formatCurrencyShort(validationSummary.hierarchyTotals.ingresos)}</div>
+                        <div>Actual: {formatCurrencyShort(validationSummary.classifiedTotals.ingresos)}</div>
+                        <div className={`font-medium ${Math.abs(validationSummary.variance.ingresos) <= 0.01 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          Δ: {formatCurrencyShort(validationSummary.variance.ingresos)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="flex items-center gap-2 font-medium">
+                        <TrendingDown className="h-3 w-3 md:h-4 md:w-4 text-red-600 dark:text-red-400" />
+                        Egresos
+                      </span>
+                      <div className="pl-5 space-y-0.5">
+                        <div>Meta: {formatCurrencyShort(validationSummary.hierarchyTotals.egresos)}</div>
+                        <div>Actual: {formatCurrencyShort(validationSummary.classifiedTotals.egresos)}</div>
+                        <div className={`font-medium ${Math.abs(validationSummary.variance.egresos) <= 0.01 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          Δ: {formatCurrencyShort(validationSummary.variance.egresos)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
 
-          {/* Data Table - Responsive */}
-          <div className="flex-1 overflow-hidden -mx-4 md:mx-0">
-            {/* Desktop Table */}
-            <ScrollArea className="hidden md:block h-[400px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <TableHead className="w-12 text-gray-700 dark:text-gray-300">
-                      <input
-                        type="checkbox"
-                        checked={selectedRows.size === processedData.length && processedData.length > 0}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedRows(new Set(processedData.filter(row => !isHierarchyRow(row.Codigo)).map(row => row.id || row.Codigo)))
-                          } else {
-                            setSelectedRows(new Set())
-                          }
-                        }}
-                        className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                      />
-                    </TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300">Estado</TableHead>
-                    <TableHead className="cursor-pointer text-gray-700 dark:text-gray-300" onClick={() => handleSort('Concepto')}>
-                      <div className="flex items-center">
-                        Concepto <ArrowUpDown className="ml-1 h-4 w-4" />
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300">Código</TableHead>
-                    <TableHead className="cursor-pointer text-right text-gray-700 dark:text-gray-300" onClick={() => handleSort('Monto')}>
-                      <div className="flex items-center justify-end">
-                        Monto <ArrowUpDown className="ml-1 h-4 w-4" />
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300">Tipo</TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300">Categoría 1</TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            {/* Statistics Cards - Responsive grid */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-4">
+              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <CardContent className="p-2 md:p-3">
+                  <div className="text-lg md:text-xl font-bold text-blue-600 dark:text-blue-400">{stats.totalDetail}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Registros</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <CardContent className="p-2 md:p-3">
+                  <div className="text-lg md:text-xl font-bold text-green-600 dark:text-green-400">{stats.classified}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Clasificados</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <CardContent className="p-2 md:p-3">
+                  <div className="text-lg md:text-xl font-bold text-yellow-600 dark:text-yellow-400">{stats.partial}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Parciales</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <CardContent className="p-2 md:p-3">
+                  <div className="text-lg md:text-xl font-bold text-orange-600 dark:text-orange-400">{stats.unclassified}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Sin Clasificar</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 col-span-2 md:col-span-1">
+                <CardContent className="p-2 md:p-3">
+                  <div className="text-xs md:text-sm font-bold text-purple-600 dark:text-purple-400">
+                    {formatCurrencyShort(stats.unclassifiedAmount)}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Pendiente</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Mobile filters toggle */}
+            <div className="md:hidden mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMobileFilters(!showMobileFilters)}
+                className="w-full"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {showMobileFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+              </Button>
+            </div>
+
+            {/* Search and Filter Controls - Responsive */}
+            <div className={`${showMobileFilters ? 'block' : 'hidden'} md:block space-y-3 md:space-y-0 md:flex md:flex-row md:gap-4 mb-4`}>
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
+                  <Input
+                    placeholder="Buscar..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-10 md:h-9 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              </div>
+              <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+                <SelectTrigger className="w-full md:w-64 h-10 md:h-9 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+                  <SelectItem value="unclassified" className="text-gray-900 dark:text-gray-100">🔍 Sin Clasificar</SelectItem>
+                  <SelectItem value="partial" className="text-gray-900 dark:text-gray-100">⚡ Parcial</SelectItem>
+                  <SelectItem value="classified" className="text-gray-900 dark:text-gray-100">✅ Clasificados</SelectItem>
+                  <SelectItem value="hierarchy" className="text-gray-900 dark:text-gray-100">📊 Totales</SelectItem>
+                  <SelectItem value="detail" className="text-gray-900 dark:text-gray-100">📋 Detalles</SelectItem>
+                  <SelectItem value="ingresos" className="text-gray-900 dark:text-gray-100">💰 Ingresos</SelectItem>
+                  <SelectItem value="egresos" className="text-gray-900 dark:text-gray-100">💸 Egresos</SelectItem>
+                  <SelectItem value="all" className="text-gray-900 dark:text-gray-100">🗂️ Todos</SelectItem>
+                </SelectContent>
+              </Select>
+              {selectedRows.size > 0 && (
+                <Button onClick={handleBulkClassify} variant="outline" className="w-full md:w-auto h-10 md:h-9 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Auto ({selectedRows.size})
+                </Button>
+              )}
+            </div>
+
+            {/* Info about allowing unclassified items - Mobile optimized */}
+            {selectedFilter === "unclassified" && (
+              <Alert className="mb-4 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-xs md:text-sm text-gray-700 dark:text-gray-300">
+                  <strong>Nota:</strong> No todos los elementos necesitan clasificación. 
+                  <span className="hidden md:inline"> Algunos registros pueden permanecer sin clasificar si no forman parte del sistema de clasificación principal.</span>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Data Table - Responsive */}
+            <div className="mb-4">
+              {/* Desktop Table */}
+              <ScrollArea className="hidden md:block h-[400px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <TableHead className="w-12 text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={selectedRows.size === processedData.length && processedData.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedRows(new Set(processedData.filter(row => !isHierarchyRow(row.Codigo)).map(row => row.id || row.Codigo)))
+                            } else {
+                              setSelectedRows(new Set())
+                            }
+                          }}
+                          className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                        />
+                      </TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-300">Estado</TableHead>
+                      <TableHead className="cursor-pointer text-gray-700 dark:text-gray-300" onClick={() => handleSort('Concepto')}>
+                        <div className="flex items-center">
+                          Concepto <ArrowUpDown className="ml-1 h-4 w-4" />
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-300">Código</TableHead>
+                      <TableHead className="cursor-pointer text-right text-gray-700 dark:text-gray-300" onClick={() => handleSort('Monto')}>
+                        <div className="flex items-center justify-end">
+                          Monto <ArrowUpDown className="ml-1 h-4 w-4" />
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-300">Tipo</TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-300">Categoría 1</TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-300">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {processedData.map((row) => {
+                      const rowId = row.id || row.Codigo
+                      const status = getClassificationStatus(row)
+                      const isEditing = editingRowId === rowId
+                      const isHierarchy = isHierarchyRow(row.Codigo)
+                      
+                      if (isEditing) {
+                        return (
+                          <TableRow key={`edit-${rowId}`}>
+                            <TableCell colSpan={8}>
+                              <InlineEditor
+                                row={row}
+                                onUpdate={(updates) => handleRowUpdate(rowId, updates)}
+                                onCancel={handleCancelEdit}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )
+                      }
+
+                      return (
+                        <TableRow 
+                          key={rowId} 
+                          className={`
+                            hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-200 dark:border-gray-700
+                            ${isHierarchy ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500 dark:border-l-blue-400' : ''}
+                            ${status.status === 'classified' ? 'bg-green-50 dark:bg-green-900/20' : ''}
+                            ${status.status === 'untyped' ? 'bg-red-50 dark:bg-red-900/20' : ''}
+                          `}
+                        >
+                          <TableCell className="text-gray-900 dark:text-gray-100">
+                            {!isHierarchy && (
+                              <input
+                                type="checkbox"
+                                checked={selectedRows.has(rowId)}
+                                onChange={(e) => {
+                                  const newSelectedRows = new Set(selectedRows)
+                                  if (e.target.checked) {
+                                    newSelectedRows.add(rowId)
+                                  } else {
+                                    newSelectedRows.delete(rowId)
+                                  }
+                                  setSelectedRows(newSelectedRows)
+                                }}
+                                className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell className="text-gray-900 dark:text-gray-100">
+                            <Badge 
+                              variant={
+                                status.color === 'green' ? 'default' : 
+                                status.color === 'blue' ? 'secondary' :
+                                status.color === 'yellow' ? 'outline' : 'destructive'
+                              }
+                              className={`text-xs ${
+                                status.color === 'yellow' ? 'border-yellow-500 dark:border-yellow-400 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20' :
+                                status.color === 'gray' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' : ''
+                              }`}
+                            >
+                              {status.message}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-[200px] text-gray-900 dark:text-gray-100">
+                            <div className="truncate" title={row.Concepto}>
+                              {row.Concepto}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm text-gray-900 dark:text-gray-100">{row.Codigo}</TableCell>
+                          <TableCell className="text-right font-medium text-gray-900 dark:text-gray-100">
+                            {formatCurrency(row.Monto)}
+                          </TableCell>
+                          <TableCell className="text-gray-900 dark:text-gray-100">
+                            <Badge variant="outline" className="text-xs border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                              {row.Tipo || 'Sin tipo'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-[150px] text-gray-900 dark:text-gray-100">
+                            <div className="truncate text-sm" title={row['Categoria 1']}>
+                              {row['Categoria 1'] || 'Sin categoría'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-gray-900 dark:text-gray-100">
+                            {!isHierarchy && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditingRowId(rowId)}
+                                className="h-7 px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600"
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                            )}
+                            {isHierarchy && (
+                              <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                Total de Control
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+
+              {/* Mobile List */}
+              <div className="md:hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
                   {processedData.map((row) => {
                     const rowId = row.id || row.Codigo
-                    const status = getClassificationStatus(row)
                     const isEditing = editingRowId === rowId
-                    const isHierarchy = isHierarchyRow(row.Codigo)
                     
                     if (isEditing) {
                       return (
-                        <TableRow key={`edit-${rowId}`}>
-                          <TableCell colSpan={8}>
-                            <InlineEditor
-                              row={row}
-                              onUpdate={(updates) => handleRowUpdate(rowId, updates)}
-                              onCancel={handleCancelEdit}
-                            />
-                          </TableCell>
-                        </TableRow>
+                        <MobileInlineEditor
+                          key={`edit-${rowId}`}
+                          row={row}
+                          onUpdate={(updates) => handleRowUpdate(rowId, updates)}
+                          onCancel={handleCancelEdit}
+                        />
                       )
                     }
 
                     return (
-                      <TableRow 
-                        key={rowId} 
-                        className={`
-                          hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-200 dark:border-gray-700
-                          ${isHierarchy ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500 dark:border-l-blue-400' : ''}
-                          ${status.status === 'classified' ? 'bg-green-50 dark:bg-green-900/20' : ''}
-                          ${status.status === 'untyped' ? 'bg-red-50 dark:bg-red-900/20' : ''}
-                        `}
-                      >
-                        <TableCell className="text-gray-900 dark:text-gray-100">
-                          {!isHierarchy && (
-                            <input
-                              type="checkbox"
-                              checked={selectedRows.has(rowId)}
-                              onChange={(e) => {
-                                const newSelectedRows = new Set(selectedRows)
-                                if (e.target.checked) {
-                                  newSelectedRows.add(rowId)
-                                } else {
-                                  newSelectedRows.delete(rowId)
-                                }
-                                setSelectedRows(newSelectedRows)
-                              }}
-                              className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-gray-900 dark:text-gray-100">
-                          <Badge 
-                            variant={
-                              status.color === 'green' ? 'default' : 
-                              status.color === 'blue' ? 'secondary' :
-                              status.color === 'yellow' ? 'outline' : 'destructive'
-                            }
-                            className={`text-xs ${
-                              status.color === 'yellow' ? 'border-yellow-500 dark:border-yellow-400 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20' :
-                              status.color === 'gray' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' : ''
-                            }`}
-                          >
-                            {status.message}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="max-w-[200px] text-gray-900 dark:text-gray-100">
-                          <div className="truncate" title={row.Concepto}>
-                            {row.Concepto}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm text-gray-900 dark:text-gray-100">{row.Codigo}</TableCell>
-                        <TableCell className="text-right font-medium text-gray-900 dark:text-gray-100">
-                          {formatCurrency(row.Monto)}
-                        </TableCell>
-                        <TableCell className="text-gray-900 dark:text-gray-100">
-                          <Badge variant="outline" className="text-xs border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                            {row.Tipo || 'Sin tipo'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="max-w-[150px] text-gray-900 dark:text-gray-100">
-                          <div className="truncate text-sm" title={row['Categoria 1']}>
-                            {row['Categoria 1'] || 'Sin categoría'}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-gray-900 dark:text-gray-100">
-                          {!isHierarchy && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setEditingRowId(rowId)}
-                              className="h-7 px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                          )}
-                          {isHierarchy && (
-                            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                              Total de Control
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-
-            {/* Mobile List */}
-            <ScrollArea className="md:hidden h-[calc(100vh-400px)] bg-white dark:bg-gray-800 border-y border-gray-200 dark:border-gray-700">
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {processedData.map((row) => {
-                  const rowId = row.id || row.Codigo
-                  const isEditing = editingRowId === rowId
-                  
-                  if (isEditing) {
-                    return (
-                      <MobileInlineEditor
-                        key={`edit-${rowId}`}
+                      <MobileTableRow
+                        key={rowId}
                         row={row}
-                        onUpdate={(updates) => handleRowUpdate(rowId, updates)}
-                        onCancel={handleCancelEdit}
+                        isSelected={selectedRows.has(rowId)}
+                        onToggleSelect={() => {
+                          const newSelectedRows = new Set(selectedRows)
+                          if (selectedRows.has(rowId)) {
+                            newSelectedRows.delete(rowId)
+                          } else {
+                            newSelectedRows.add(rowId)
+                          }
+                          setSelectedRows(newSelectedRows)
+                        }}
+                        onEdit={() => setEditingRowId(rowId)}
+                        isExpanded={expandedRows.has(rowId)}
+                        onToggleExpand={() => toggleRowExpand(rowId)}
                       />
                     )
-                  }
-
-                  return (
-                    <MobileTableRow
-                      key={rowId}
-                      row={row}
-                      isSelected={selectedRows.has(rowId)}
-                      onToggleSelect={() => {
-                        const newSelectedRows = new Set(selectedRows)
-                        if (selectedRows.has(rowId)) {
-                          newSelectedRows.delete(rowId)
-                        } else {
-                          newSelectedRows.add(rowId)
-                        }
-                        setSelectedRows(newSelectedRows)
-                      }}
-                      onEdit={() => setEditingRowId(rowId)}
-                      isExpanded={expandedRows.has(rowId)}
-                      onToggleExpand={() => toggleRowExpand(rowId)}
-                    />
-                  )
-                })}
+                  })}
+                </div>
               </div>
-            </ScrollArea>
+            </div>
           </div>
-        </div>
 
-        <DialogFooter className="flex flex-col md:flex-row justify-between gap-3 p-4 md:p-0 md:pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 order-2 md:order-1 text-center md:text-left">
-            {processedData.length} de {data.length} registros
-          </div>
-          <div className="flex gap-2 md:gap-3 order-1 md:order-2">
-            <Button variant="outline" onClick={onClose} className="flex-1 md:flex-initial bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700">
-              Cerrar
-            </Button>
-            {onReturnToValidation && (
-              <Button onClick={onReturnToValidation} className="flex-1 md:flex-initial bg-green-600 hover:bg-green-700 text-white">
-                <Save className="h-4 w-4 mr-2" />
-                <span className="hidden md:inline">Volver a Validación</span>
-                <span className="md:hidden">Validar</span>
+          <DialogFooter className="flex-shrink-0 flex flex-col md:flex-row justify-between gap-3 p-4 md:p-0 md:pt-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+            <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 order-2 md:order-1 text-center md:text-left">
+              {processedData.length} de {data.length} registros
+            </div>
+            <div className="flex gap-2 md:gap-3 order-1 md:order-2">
+              <Button variant="outline" onClick={onClose} className="flex-1 md:flex-initial bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700">
+                Cerrar
               </Button>
-            )}
-          </div>
-        </DialogFooter>
+              {onReturnToValidation && (
+                <Button onClick={onReturnToValidation} className="flex-1 md:flex-initial bg-green-600 hover:bg-green-700 text-white">
+                  <Save className="h-4 w-4 mr-2" />
+                  <span className="hidden md:inline">Volver a Validación</span>
+                  <span className="md:hidden">Validar</span>
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )
