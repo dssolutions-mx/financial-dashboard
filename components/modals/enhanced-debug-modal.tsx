@@ -163,6 +163,7 @@ const InlineEditor = React.memo(({
   onCancel: () => void
 }) => {
   const [localRow, setLocalRow] = useState<DebugDataRow>({ ...row })
+  const isMobile = useIsMobile()
   
   const correctType = localRow.Tipo && localRow.Tipo !== "Indefinido" 
     ? localRow.Tipo 
@@ -207,23 +208,23 @@ const InlineEditor = React.memo(({
   return (
     <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-3">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-          Editando: {row.Concepto.substring(0, 50)}...
+        <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-yellow-800 dark:text-yellow-300`}>
+          Editando: {row.Concepto.substring(0, isMobile ? 30 : 50)}...
         </span>
         <div className="flex gap-1">
-          <Button size="sm" variant="ghost" onClick={onCancel} className="h-7 px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600">
-            <X className="h-3 w-3" />
+          <Button size="sm" variant="ghost" onClick={onCancel} className={`${isMobile ? 'h-8 w-8' : 'h-7'} px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600`}>
+            <X className={`${isMobile ? 'h-4 w-4' : 'h-3 w-3'}`} />
           </Button>
-          <Button size="sm" onClick={handleQuickSave} className="h-7 px-2 bg-green-600 hover:bg-green-700 text-white">
-            <Check className="h-3 w-3" />
+          <Button size="sm" onClick={handleQuickSave} className={`${isMobile ? 'h-8 w-8' : 'h-7'} px-2 bg-green-600 hover:bg-green-700 text-white`}>
+            <Check className={`${isMobile ? 'h-4 w-4' : 'h-3 w-3'}`} />
           </Button>
         </div>
       </div>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+      <div className={`${isMobile ? 'grid grid-cols-1 gap-2' : 'grid grid-cols-2 md:grid-cols-4 gap-3'} text-sm`}>
         <div>
           <Select value={localRow.Tipo} onValueChange={(value) => handleFieldChange('Tipo', value)}>
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+            <SelectTrigger className={`${isMobile ? 'h-10' : 'h-8'} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100`}>
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -240,7 +241,7 @@ const InlineEditor = React.memo(({
             onValueChange={(value) => handleFieldChange('Sub categoria', value)}
             disabled={!correctType || correctType === "Indefinido"}
           >
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+            <SelectTrigger className={`${isMobile ? 'h-10' : 'h-8'} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100`}>
               <SelectValue placeholder="Sub categoría" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -258,7 +259,7 @@ const InlineEditor = React.memo(({
             onValueChange={(value) => handleFieldChange('Clasificacion', value)}
             disabled={!localRow['Sub categoria'] || localRow['Sub categoria'] === "Sin Subcategoría"}
           >
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+            <SelectTrigger className={`${isMobile ? 'h-10' : 'h-8'} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100`}>
               <SelectValue placeholder="Clasificación" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -276,7 +277,7 @@ const InlineEditor = React.memo(({
             onValueChange={(value) => handleFieldChange('Categoria 1', value)}
             disabled={!localRow.Clasificacion || localRow.Clasificacion === "Sin Clasificación"}
           >
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+            <SelectTrigger className={`${isMobile ? 'h-10' : 'h-8'} bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100`}>
               <SelectValue placeholder="Categoría 1" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -289,7 +290,7 @@ const InlineEditor = React.memo(({
         </div>
       </div>
       
-      <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+      <div className={`mt-2 ${isMobile ? 'text-xs' : 'text-xs'} text-gray-600 dark:text-gray-400`}>
         {formatCurrency(row.Monto)} • {row.Codigo} • {row.Planta}
       </div>
     </div>
@@ -477,16 +478,16 @@ export default function EnhancedDebugModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] w-[95vw] p-0 overflow-hidden">
-        <div className="flex flex-col h-full max-h-[95vh]">
+      <DialogContent className={`${isMobile ? 'max-w-[98vw] max-h-[98vh] w-[98vw]' : 'max-w-[95vw] max-h-[95vh] w-[95vw]'} p-0 overflow-hidden`}>
+        <div className="flex flex-col h-full max-h-[98vh]">
           {/* Header */}
-          <div className="p-6 border-b bg-white dark:bg-gray-800 flex-shrink-0">
+          <div className={`${isMobile ? 'p-4' : 'p-6'} border-b bg-white dark:bg-gray-800 flex-shrink-0`}>
             <DialogHeader className="space-y-2">
-              <DialogTitle className="flex items-center gap-2 text-xl">
-                <Target className="h-6 w-6 text-blue-600" />
+              <DialogTitle className={`flex items-center gap-2 ${isMobile ? 'text-lg' : 'text-xl'}`}>
+                <Target className={`${isMobile ? 'h-5 w-5' : 'h-6 w-6'} text-blue-600`} />
                 Debug de Datos Financieros
               </DialogTitle>
-              <DialogDescription className="text-base">
+              <DialogDescription className={`${isMobile ? 'text-sm' : 'text-base'}`}>
                 Verificar, editar y clasificar datos del archivo Excel
               </DialogDescription>
             </DialogHeader>
@@ -497,19 +498,19 @@ export default function EnhancedDebugModal({
             <div className={`${isMobile ? 'grid grid-cols-2 gap-2' : 'flex items-center justify-between'}`}>
               <div className={`${isMobile ? 'grid grid-cols-2 gap-2 col-span-2' : 'flex items-center gap-6'}`}>
                 <div className={`${isMobile ? 'text-center' : 'text-left'}`}>
-                  <div className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-blue-600`}>{stats.total}</div>
+                  <div className={`${isMobile ? 'text-xl font-bold' : 'text-2xl font-bold'} text-blue-600`}>{stats.total}</div>
                   <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Total</div>
                 </div>
                 <div className={`${isMobile ? 'text-center' : 'text-left'}`}>
-                  <div className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-green-600`}>{stats.classified}</div>
+                  <div className={`${isMobile ? 'text-xl font-bold' : 'text-2xl font-bold'} text-green-600`}>{stats.classified}</div>
                   <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Clasificados</div>
                 </div>
                 <div className={`${isMobile ? 'text-center' : 'text-left'}`}>
-                  <div className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-orange-600`}>{stats.unclassified}</div>
+                  <div className={`${isMobile ? 'text-xl font-bold' : 'text-2xl font-bold'} text-orange-600`}>{stats.unclassified}</div>
                   <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Sin Clasificar</div>
                 </div>
                 <div className={`${isMobile ? 'text-center' : 'text-left'}`}>
-                  <div className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-gray-600`}>{stats.hierarchy}</div>
+                  <div className={`${isMobile ? 'text-xl font-bold' : 'text-2xl font-bold'} text-gray-600`}>{stats.hierarchy}</div>
                   <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Jerárquicos</div>
                 </div>
               </div>
@@ -533,17 +534,17 @@ export default function EnhancedDebugModal({
                 <div className={`${isMobile ? '' : 'flex items-center gap-2'}`}>
                   <Search className={`${isMobile ? 'hidden' : 'h-4 w-4'} text-gray-400`} />
                   <Input
-                    placeholder="Buscar por código o concepto..."
+                    placeholder={isMobile ? "Buscar..." : "Buscar por código o concepto..."}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className={`${isMobile ? 'w-full h-10' : 'w-64'}`}
+                    className={`${isMobile ? 'w-full h-11 text-base' : 'w-64'}`}
                   />
                 </div>
                 
                 <div className={`${isMobile ? '' : 'flex items-center gap-2'}`}>
                   <Filter className={`${isMobile ? 'hidden' : 'h-4 w-4'} text-gray-400`} />
                   <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className={`${isMobile ? 'w-full h-10' : 'w-40'}`}>
+                    <SelectTrigger className={`${isMobile ? 'w-full h-11 text-base' : 'w-40'}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -560,7 +561,7 @@ export default function EnhancedDebugModal({
               {/* Action Buttons */}
               <div className={`${isMobile ? 'flex gap-2' : 'flex items-center gap-2'}`}>
                 {hasUnsavedChanges && (
-                  <Badge variant="destructive" className={`${isMobile ? 'text-xs' : ''}`}>
+                  <Badge variant="destructive" className={`${isMobile ? 'text-xs px-2 py-1' : ''}`}>
                     <Edit className={`${isMobile ? 'h-3 w-3 mr-1' : 'h-3 w-3 mr-1'}`} />
                     {isMobile ? 'Cambios' : 'Cambios sin guardar'}
                   </Badge>
@@ -568,23 +569,23 @@ export default function EnhancedDebugModal({
                 
                 <Button
                   variant="outline"
-                  size={isMobile ? "sm" : "default"}
+                  size={isMobile ? "default" : "default"}
                   onClick={handleResetChanges}
                   disabled={!hasUnsavedChanges}
-                  className={`${isMobile ? 'flex-1' : ''}`}
+                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
                 >
-                  <RefreshCw className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4 mr-2'}`} />
-                  {!isMobile && 'Reiniciar'}
+                  <RefreshCw className={`${isMobile ? 'h-4 w-4 mr-2' : 'h-4 w-4 mr-2'}`} />
+                  {isMobile ? 'Reiniciar' : 'Reiniciar'}
                 </Button>
                 
                 <Button
                   onClick={handleSaveChanges}
                   disabled={!hasUnsavedChanges}
-                  size={isMobile ? "sm" : "default"}
-                  className={`${isMobile ? 'flex-1' : ''}`}
+                  size={isMobile ? "default" : "default"}
+                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
                 >
-                  <Save className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4 mr-2'}`} />
-                  {!isMobile && 'Guardar'}
+                  <Save className={`${isMobile ? 'h-4 w-4 mr-2' : 'h-4 w-4 mr-2'}`} />
+                  {isMobile ? 'Guardar' : 'Guardar'}
                 </Button>
               </div>
             </div>
@@ -593,44 +594,44 @@ export default function EnhancedDebugModal({
           {/* Table */}
           <div className="flex-1 overflow-auto">
             <div className={`${isMobile ? 'overflow-x-auto' : 'overflow-auto'}`}>
-              <table ref={tableRef} className={`w-full ${isMobile ? 'min-w-[800px]' : 'min-w-0'} border-collapse`}>
+              <table ref={tableRef} className={`w-full ${isMobile ? 'min-w-[640px]' : 'min-w-0'} border-collapse`}>
                 <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
                   <tr>
-                    <th className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    <th className={`${isMobile ? 'px-2 py-3 w-12' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       Estado
                     </th>
-                    <th className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
+                    <th className={`${isMobile ? 'px-2 py-3 w-20' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
                         onClick={() => handleSort('Codigo')}>
                       <div className="flex items-center gap-1">
                         Código
                         <ArrowUpDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                       </div>
                     </th>
-                    <th className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
+                    <th className={`${isMobile ? 'px-2 py-3 min-w-[140px]' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
                         onClick={() => handleSort('Concepto')}>
                       <div className="flex items-center gap-1">
                         Concepto
                         <ArrowUpDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                       </div>
                     </th>
-                    <th className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} text-right border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
+                    <th className={`${isMobile ? 'px-2 py-3 w-20' : 'px-4 py-3'} text-right border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
                         onClick={() => handleSort('Monto')}>
                       <div className="flex items-center justify-end gap-1">
                         Monto
                         <ArrowUpDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                       </div>
                     </th>
-                    <th className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
+                    <th className={`${isMobile ? 'px-2 py-3 w-20' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800`}
                         onClick={() => handleSort('Tipo')}>
                       <div className="flex items-center gap-1">
                         Tipo
                         <ArrowUpDown className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
                       </div>
                     </th>
-                    <th className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    <th className={`${isMobile ? 'px-2 py-3 w-24' : 'px-4 py-3'} text-left border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       Categoría 1
                     </th>
-                    <th className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} text-center border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    <th className={`${isMobile ? 'px-2 py-3 w-16' : 'px-4 py-3'} text-center border-b font-medium text-gray-600 dark:text-gray-300 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       Acciones
                     </th>
                   </tr>
@@ -647,36 +648,36 @@ export default function EnhancedDebugModal({
                         className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 ${isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${isMobile ? 'cursor-pointer' : ''}`}
                         onClick={() => isMobile && handleMobileRowSelect(row.Codigo)}
                       >
-                        <td className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} align-top`}>
+                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top`}>
                           <div className="flex items-center gap-2">
-                            {status.status === 'success' && <CheckCircle className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-green-500`} />}
-                            {status.status === 'warning' && <AlertTriangle className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-orange-500`} />}
-                            {status.status === 'error' && <X className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-red-500`} />}
-                            {status.status === 'hierarchy' && <Info className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'} text-blue-500`} />}
+                            {status.status === 'classified' && <CheckCircle className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4'} text-green-500`} />}
+                            {status.status === 'partial' && <AlertTriangle className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4'} text-orange-500`} />}
+                            {status.status === 'unclassified' && <X className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4'} text-red-500`} />}
+                            {status.status === 'hierarchy' && <Info className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4'} text-blue-500`} />}
                           </div>
                         </td>
-                        <td className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} align-top`}>
-                          <code className={`${isMobile ? 'text-xs' : 'text-sm'} bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded`}>
-                            {row.Codigo}
+                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top`}>
+                          <code className={`${isMobile ? 'text-xs' : 'text-sm'} bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded block`}>
+                            {isMobile ? row.Codigo.substring(0, 8) + '...' : row.Codigo}
                           </code>
                         </td>
-                        <td className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} align-top`}>
-                          <div className={`${isMobile ? 'text-xs' : 'text-sm'} ${isMobile ? 'max-w-[120px]' : 'max-w-xs'} truncate`} title={row.Concepto}>
-                            {row.Concepto}
+                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top`}>
+                          <div className={`${isMobile ? 'text-xs' : 'text-sm'} ${isMobile ? 'max-w-[140px]' : 'max-w-xs'} break-words`} title={row.Concepto}>
+                            {isMobile ? row.Concepto.substring(0, 40) + (row.Concepto.length > 40 ? '...' : '') : row.Concepto}
                           </div>
                         </td>
-                        <td className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} align-top text-right`}>
+                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top text-right`}>
                           <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-mono ${row.Monto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatCurrency(row.Monto)}
+                            {isMobile ? formatCurrency(row.Monto).replace('MX$', '$') : formatCurrency(row.Monto)}
                           </div>
                         </td>
-                        <td className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} align-top`}>
+                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top`}>
                           {isEditing ? (
                             <Select
                               value={row.Tipo}
                               onValueChange={(value) => handleRowUpdate(row.Codigo, 'Tipo', value)}
                             >
-                              <SelectTrigger className={`${isMobile ? 'w-24 h-8 text-xs' : 'w-32 h-8 text-sm'}`}>
+                              <SelectTrigger className={`${isMobile ? 'w-20 h-9 text-xs' : 'w-32 h-8 text-sm'}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -686,26 +687,29 @@ export default function EnhancedDebugModal({
                               </SelectContent>
                             </Select>
                           ) : (
-                            <Badge variant={row.Tipo === 'Ingresos' ? 'default' : row.Tipo === 'Egresos' ? 'destructive' : 'secondary'} className={`${isMobile ? 'text-xs' : ''}`}>
-                              {row.Tipo}
+                            <Badge variant={row.Tipo === 'Ingresos' ? 'default' : row.Tipo === 'Egresos' ? 'destructive' : 'secondary'} className={`${isMobile ? 'text-xs px-1 py-0.5' : ''}`}>
+                              {isMobile ? row.Tipo.substring(0, 3) : row.Tipo}
                             </Badge>
                           )}
                         </td>
-                        <td className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} align-top`}>
+                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top`}>
                           {isEditing ? (
                             <Input
                               value={row['Categoria 1']}
                               onChange={(e) => handleRowUpdate(row.Codigo, 'Categoria 1', e.target.value)}
-                              className={`${isMobile ? 'w-24 h-8 text-xs' : 'w-32 h-8 text-sm'}`}
+                              className={`${isMobile ? 'w-24 h-9 text-xs' : 'w-32 h-8 text-sm'}`}
                               placeholder="Categoría..."
                             />
                           ) : (
-                            <div className={`${isMobile ? 'text-xs' : 'text-sm'} ${isMobile ? 'max-w-[100px]' : 'max-w-xs'} truncate`} title={row['Categoria 1']}>
-                              {row['Categoria 1'] || 'Sin categoría'}
+                            <div className={`${isMobile ? 'text-xs' : 'text-sm'} ${isMobile ? 'max-w-[80px]' : 'max-w-xs'} break-words`} title={row['Categoria 1']}>
+                              {isMobile ? 
+                                (row['Categoria 1'] || 'Sin categoría').substring(0, 10) + ((row['Categoria 1'] || 'Sin categoría').length > 10 ? '...' : '') :
+                                row['Categoria 1'] || 'Sin categoría'
+                              }
                             </div>
                           )}
                         </td>
-                        <td className={`${isMobile ? 'px-2 py-2' : 'px-4 py-3'} align-top text-center`}>
+                        <td className={`${isMobile ? 'px-2 py-3' : 'px-4 py-3'} align-top text-center`}>
                           <div className={`${isMobile ? 'flex flex-col gap-1' : 'flex items-center gap-2'}`}>
                             {!isMobile && (
                               <Button
@@ -718,12 +722,12 @@ export default function EnhancedDebugModal({
                               </Button>
                             )}
                             
-                            {suggestion && status.status !== 'success' && (
+                            {suggestion && status.status !== 'classified' && (
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => applyAutoSuggestion(row.Codigo)}
-                                className={`${isMobile ? 'h-6 text-xs' : 'h-8'} ${isMobile ? 'w-full' : 'w-8'} p-0`}
+                                className={`${isMobile ? 'h-8 w-8 p-0' : 'h-8 w-8 p-0'}`}
                                 title="Aplicar sugerencia automática"
                               >
                                 <Target className={`${isMobile ? 'h-3 w-3' : 'h-3 w-3'}`} />
@@ -739,10 +743,26 @@ export default function EnhancedDebugModal({
             </div>
           </div>
 
+          {/* Mobile Edit Panel */}
+          {isMobile && editingRow && (
+            <div className="flex-shrink-0 border-t bg-white dark:bg-gray-800">
+              <InlineEditor
+                row={paginatedData.find(r => r.Codigo === editingRow)!}
+                onUpdate={(updates) => {
+                  Object.entries(updates).forEach(([field, value]) => {
+                    handleRowUpdate(editingRow, field as keyof DebugDataRow, value)
+                  })
+                  setEditingRow(null)
+                }}
+                onCancel={() => setEditingRow(null)}
+              />
+            </div>
+          )}
+
           {/* Pagination */}
           <div className={`${isMobile ? 'p-3' : 'p-4'} border-t bg-white dark:bg-gray-800 flex-shrink-0`}>
             <div className={`${isMobile ? 'flex flex-col gap-2' : 'flex items-center justify-between'}`}>
-              <div className={`${isMobile ? 'text-sm' : 'text-sm'} text-gray-600`}>
+              <div className={`${isMobile ? 'text-sm text-center' : 'text-sm'} text-gray-600`}>
                 Mostrando {Math.min((currentPage - 1) * itemsPerPage + 1, filteredAndSortedData.length)} a{' '}
                 {Math.min(currentPage * itemsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length} registros
               </div>
@@ -750,22 +770,24 @@ export default function EnhancedDebugModal({
               <div className={`${isMobile ? 'flex justify-between items-center' : 'flex items-center gap-2'}`}>
                 <Button
                   variant="outline"
-                  size="sm"
+                  size={isMobile ? "default" : "sm"}
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
+                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
                 >
                   Anterior
                 </Button>
                 
-                <div className={`${isMobile ? 'text-sm' : 'text-sm'} text-gray-600`}>
+                <div className={`${isMobile ? 'text-sm px-4' : 'text-sm'} text-gray-600`}>
                   Página {currentPage} de {totalPages}
                 </div>
                 
                 <Button
                   variant="outline"
-                  size="sm"
+                  size={isMobile ? "default" : "sm"}
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
+                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
                 >
                   Siguiente
                 </Button>
@@ -781,11 +803,11 @@ export default function EnhancedDebugModal({
                   <Button
                     variant="outline"
                     onClick={onReturnToValidation}
-                    size={isMobile ? "sm" : "default"}
-                    className={`${isMobile ? 'w-full' : ''}`}
+                    size={isMobile ? "default" : "default"}
+                    className={`${isMobile ? 'w-full h-11 text-base' : ''}`}
                   >
-                    <ArrowUpDown className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4 mr-2'}`} />
-                    {!isMobile && 'Volver a Validación'}
+                    <ArrowUpDown className={`${isMobile ? 'h-4 w-4 mr-2' : 'h-4 w-4 mr-2'}`} />
+                    {isMobile ? 'Volver a Validación' : 'Volver a Validación'}
                   </Button>
                 )}
               </div>
@@ -794,8 +816,8 @@ export default function EnhancedDebugModal({
                 <Button
                   variant="outline"
                   onClick={onClose}
-                  size={isMobile ? "sm" : "default"}
-                  className={`${isMobile ? 'flex-1' : ''}`}
+                  size={isMobile ? "default" : "default"}
+                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
                 >
                   Cerrar
                 </Button>
@@ -803,11 +825,11 @@ export default function EnhancedDebugModal({
                 <Button
                   onClick={handleSaveChanges}
                   disabled={!hasUnsavedChanges}
-                  size={isMobile ? "sm" : "default"}
-                  className={`${isMobile ? 'flex-1' : ''}`}
+                  size={isMobile ? "default" : "default"}
+                  className={`${isMobile ? 'flex-1 h-11 text-base' : ''}`}
                 >
-                  <Save className={`${isMobile ? 'h-4 w-4' : 'h-4 w-4 mr-2'}`} />
-                  {!isMobile && 'Guardar y Cerrar'}
+                  <Save className={`${isMobile ? 'h-4 w-4 mr-2' : 'h-4 w-4 mr-2'}`} />
+                  {isMobile ? 'Guardar y Cerrar' : 'Guardar y Cerrar'}
                 </Button>
               </div>
             </div>
