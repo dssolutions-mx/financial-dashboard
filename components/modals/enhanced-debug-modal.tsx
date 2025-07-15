@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { useIsMobile } from "@/components/ui/use-mobile"
+// import { useIsMobile } from "@/components/ui/use-mobile"
 import { 
   Search, 
   CheckCircle, 
@@ -230,8 +230,8 @@ const MobileRowCard = React.memo(({
                   {formatCurrencyCompact(row.Monto)}
                 </span>
               </div>
-              <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm leading-tight line-clamp-2">
-                {row.Concepto}
+              <h3 className="font-medium text-gray-900 dark:text-gray-100 text-sm leading-tight">
+                {row.Concepto.substring(0, 80)}...
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono">
                 {row.Codigo}
@@ -413,8 +413,8 @@ const MobileInlineEditor = React.memo(({
 
         {/* Item Info */}
         <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg">
-          <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm mb-2 line-clamp-2">
-            {row.Concepto}
+          <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm mb-2">
+            {row.Concepto.substring(0, 80)}...
           </h4>
           <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
             <span className="font-mono">{row.Codigo}</span>
@@ -525,6 +525,152 @@ const MobileInlineEditor = React.memo(({
 
 MobileInlineEditor.displayName = 'MobileInlineEditor'
 
+// Simple inline editor component for desktop - unchanged for compatibility
+const InlineEditor = React.memo(({ 
+  row, 
+  onUpdate,
+  onCancel
+}: { 
+  row: DebugDataRow
+  onUpdate: (updates: Partial<DebugDataRow>) => void
+  onCancel: () => void
+}) => {
+  const [localRow, setLocalRow] = useState<DebugDataRow>({ ...row })
+  
+  const correctType = localRow.Tipo && localRow.Tipo !== "Indefinido" 
+    ? localRow.Tipo 
+    : determineTypeFromCode(localRow.Codigo)
+
+  const subCategorias = useMemo(() => 
+    getSubCategoriasForTipo(correctType || ""), [correctType]
+  )
+  
+  const categorias1 = useMemo(() => 
+    getCategoria1ForClasificacion(correctType || "", localRow['Sub categoria'] || "", localRow.Clasificacion || ""), 
+    [correctType, localRow['Sub categoria'], localRow.Clasificacion]
+  )
+
+  const handleQuickSave = useCallback(() => {
+    onUpdate({
+      Tipo: localRow.Tipo,
+      'Sub categoria': localRow['Sub categoria'],
+      Clasificacion: localRow.Clasificacion,
+      'Categoria 1': localRow['Categoria 1']
+    })
+  }, [localRow, onUpdate])
+
+  const handleFieldChange = useCallback((field: keyof DebugDataRow, value: string) => {
+    const updates: Partial<DebugDataRow> = { [field]: value }
+    
+    // Reset dependent fields when parent changes
+    if (field === 'Tipo') {
+      updates['Sub categoria'] = 'Sin Subcategoría'
+      updates.Clasificacion = 'Sin Clasificación'
+      updates['Categoria 1'] = 'Sin Categoría'
+    } else if (field === 'Sub categoria') {
+      updates.Clasificacion = 'Sin Clasificación'
+      updates['Categoria 1'] = 'Sin Categoría'
+    } else if (field === 'Clasificacion') {
+      updates['Categoria 1'] = 'Sin Categoría'
+    }
+    
+    setLocalRow(prev => ({ ...prev, ...updates }))
+  }, [])
+
+  return (
+    <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-3">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+          Editando: {row.Concepto.substring(0, 50)}...
+        </span>
+        <div className="flex gap-1">
+          <Button size="sm" variant="ghost" onClick={onCancel} className="h-7 px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600">
+            <X className="h-3 w-3" />
+          </Button>
+          <Button size="sm" onClick={handleQuickSave} className="h-7 px-2 bg-green-600 hover:bg-green-700 text-white">
+            <Check className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div>
+          <Select value={localRow.Tipo} onValueChange={(value) => handleFieldChange('Tipo', value)}>
+            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+              <SelectItem value="Ingresos" className="text-gray-900 dark:text-gray-100">Ingresos</SelectItem>
+              <SelectItem value="Egresos" className="text-gray-900 dark:text-gray-100">Egresos</SelectItem>
+              <SelectItem value="Indefinido" className="text-gray-900 dark:text-gray-100">Sin Tipo</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <Select 
+            value={localRow['Sub categoria']} 
+            onValueChange={(value) => handleFieldChange('Sub categoria', value)}
+            disabled={!correctType || correctType === "Indefinido"}
+          >
+            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+              <SelectValue placeholder="Sub categoría" />
+            </SelectTrigger>
+            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+              <SelectItem value="Sin Subcategoría" className="text-gray-900 dark:text-gray-100">Sin Subcategoría</SelectItem>
+              {subCategorias.map(subcat => (
+                <SelectItem key={subcat} value={subcat} className="text-gray-900 dark:text-gray-100">{subcat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <Select 
+            value={localRow.Clasificacion} 
+            onValueChange={(value) => handleFieldChange('Clasificacion', value)}
+            disabled={!localRow['Sub categoria'] || localRow['Sub categoria'] === "Sin Subcategoría"}
+          >
+            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+              <SelectValue placeholder="Clasificación" />
+            </SelectTrigger>
+            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+              <SelectItem value="Sin Clasificación" className="text-gray-900 dark:text-gray-100">Sin Clasificación</SelectItem>
+              {getClasificacionesForSubCategoria(correctType || "", localRow['Sub categoria'] || "").map(clasif => (
+                <SelectItem key={clasif} value={clasif} className="text-gray-900 dark:text-gray-100">{clasif}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <Select 
+            value={localRow['Categoria 1']} 
+            onValueChange={(value) => handleFieldChange('Categoria 1', value)}
+            disabled={!localRow.Clasificacion || localRow.Clasificacion === "Sin Clasificación"}
+          >
+            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+              <SelectValue placeholder="Categoría 1" />
+            </SelectTrigger>
+            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+              <SelectItem value="Sin Categoría" className="text-gray-900 dark:text-gray-100">Sin Categoría</SelectItem>
+              {categorias1.map(cat => (
+                <SelectItem key={cat} value={cat} className="text-gray-900 dark:text-gray-100">{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
+      <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+        {formatCurrency(row.Monto)} • {row.Codigo} • {row.Planta}
+      </div>
+    </div>
+  )
+})
+
+InlineEditor.displayName = 'InlineEditor'
+
 export default function EnhancedDebugModal({ 
   isOpen, 
   onClose, 
@@ -538,7 +684,7 @@ export default function EnhancedDebugModal({
   const [editingRowId, setEditingRowId] = useState<string | null>(null)
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
   const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({ field: 'Monto', direction: 'desc' })
-  const isMobileDetected = useIsMobile()
+  const [isMobileDetected, setIsMobileDetected] = useState(false)
   const [forceMobileView, setForceMobileView] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem(CACHE_KEYS.MOBILE_VIEW) === 'true'
@@ -548,6 +694,17 @@ export default function EnhancedDebugModal({
   
   // Use mobile view if detected mobile OR user force-enabled it
   const isMobileView = isMobileDetected || forceMobileView
+
+  // Simple mobile detection effect
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobileDetected(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
   
   // Load cached preferences with SSR safety
   const [selectedFilter, setSelectedFilter] = useState<string>(() => {
@@ -1178,150 +1335,4 @@ export default function EnhancedDebugModal({
       </DialogContent>
     </Dialog>
   )
-}
-
-// Simple inline editor component for desktop - unchanged for compatibility
-const InlineEditor = React.memo(({ 
-  row, 
-  onUpdate,
-  onCancel
-}: { 
-  row: DebugDataRow
-  onUpdate: (updates: Partial<DebugDataRow>) => void
-  onCancel: () => void
-}) => {
-  const [localRow, setLocalRow] = useState<DebugDataRow>({ ...row })
-  
-  const correctType = localRow.Tipo && localRow.Tipo !== "Indefinido" 
-    ? localRow.Tipo 
-    : determineTypeFromCode(localRow.Codigo)
-
-  const subCategorias = useMemo(() => 
-    getSubCategoriasForTipo(correctType || ""), [correctType]
-  )
-  
-  const categorias1 = useMemo(() => 
-    getCategoria1ForClasificacion(correctType || "", localRow['Sub categoria'] || "", localRow.Clasificacion || ""), 
-    [correctType, localRow['Sub categoria'], localRow.Clasificacion]
-  )
-
-  const handleQuickSave = useCallback(() => {
-    onUpdate({
-      Tipo: localRow.Tipo,
-      'Sub categoria': localRow['Sub categoria'],
-      Clasificacion: localRow.Clasificacion,
-      'Categoria 1': localRow['Categoria 1']
-    })
-  }, [localRow, onUpdate])
-
-  const handleFieldChange = useCallback((field: keyof DebugDataRow, value: string) => {
-    const updates: Partial<DebugDataRow> = { [field]: value }
-    
-    // Reset dependent fields when parent changes
-    if (field === 'Tipo') {
-      updates['Sub categoria'] = 'Sin Subcategoría'
-      updates.Clasificacion = 'Sin Clasificación'
-      updates['Categoria 1'] = 'Sin Categoría'
-    } else if (field === 'Sub categoria') {
-      updates.Clasificacion = 'Sin Clasificación'
-      updates['Categoria 1'] = 'Sin Categoría'
-    } else if (field === 'Clasificacion') {
-      updates['Categoria 1'] = 'Sin Categoría'
-    }
-    
-    setLocalRow(prev => ({ ...prev, ...updates }))
-  }, [])
-
-  return (
-    <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-3">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-          Editando: {row.Concepto.substring(0, 50)}...
-        </span>
-        <div className="flex gap-1">
-          <Button size="sm" variant="ghost" onClick={onCancel} className="h-7 px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600">
-            <X className="h-3 w-3" />
-          </Button>
-          <Button size="sm" onClick={handleQuickSave} className="h-7 px-2 bg-green-600 hover:bg-green-700 text-white">
-            <Check className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <div>
-          <Select value={localRow.Tipo} onValueChange={(value) => handleFieldChange('Tipo', value)}>
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
-              <SelectValue placeholder="Tipo" />
-            </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-              <SelectItem value="Ingresos" className="text-gray-900 dark:text-gray-100">Ingresos</SelectItem>
-              <SelectItem value="Egresos" className="text-gray-900 dark:text-gray-100">Egresos</SelectItem>
-              <SelectItem value="Indefinido" className="text-gray-900 dark:text-gray-100">Sin Tipo</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div>
-          <Select 
-            value={localRow['Sub categoria']} 
-            onValueChange={(value) => handleFieldChange('Sub categoria', value)}
-            disabled={!correctType || correctType === "Indefinido"}
-          >
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
-              <SelectValue placeholder="Sub categoría" />
-            </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-              <SelectItem value="Sin Subcategoría" className="text-gray-900 dark:text-gray-100">Sin Subcategoría</SelectItem>
-              {subCategorias.map(subcat => (
-                <SelectItem key={subcat} value={subcat} className="text-gray-900 dark:text-gray-100">{subcat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div>
-          <Select 
-            value={localRow.Clasificacion} 
-            onValueChange={(value) => handleFieldChange('Clasificacion', value)}
-            disabled={!localRow['Sub categoria'] || localRow['Sub categoria'] === "Sin Subcategoría"}
-          >
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
-              <SelectValue placeholder="Clasificación" />
-            </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-              <SelectItem value="Sin Clasificación" className="text-gray-900 dark:text-gray-100">Sin Clasificación</SelectItem>
-              {getClasificacionesForSubCategoria(correctType || "", localRow['Sub categoria'] || "").map(clasif => (
-                <SelectItem key={clasif} value={clasif} className="text-gray-900 dark:text-gray-100">{clasif}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div>
-          <Select 
-            value={localRow['Categoria 1']} 
-            onValueChange={(value) => handleFieldChange('Categoria 1', value)}
-            disabled={!localRow.Clasificacion || localRow.Clasificacion === "Sin Clasificación"}
-          >
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
-              <SelectValue placeholder="Categoría 1" />
-            </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-              <SelectItem value="Sin Categoría" className="text-gray-900 dark:text-gray-100">Sin Categoría</SelectItem>
-              {categorias1.map(cat => (
-                <SelectItem key={cat} value={cat} className="text-gray-900 dark:text-gray-100">{cat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      
-      <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-        {formatCurrency(row.Monto)} • {row.Codigo} • {row.Planta}
-      </div>
-    </div>
-  )
-})
-
-InlineEditor.displayName = 'InlineEditor' 
+} 
