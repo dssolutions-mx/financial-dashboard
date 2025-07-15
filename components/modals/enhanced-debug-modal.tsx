@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { 
   Search, 
   CheckCircle, 
@@ -24,7 +25,10 @@ import {
   RefreshCw,
   Info,
   Edit,
-  Check
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal
 } from "lucide-react"
 import { 
   CLASSIFICATION_HIERARCHY,
@@ -73,6 +77,18 @@ const formatCurrency = (amount: number) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount)
+}
+
+// Helper function to format currency for mobile (shorter)
+const formatCurrencyMobile = (amount: number) => {
+  const formatted = new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+    notation: 'compact'
+  }).format(amount)
+  return formatted.replace('MX$', '$')
 }
 
 // Helper function to determine correct type from account code
@@ -151,7 +167,7 @@ const filterData = (
   })
 }
 
-// Simple inline editor component - much more streamlined
+// Mobile-optimized inline editor component
 const InlineEditor = React.memo(({ 
   row, 
   onUpdate,
@@ -162,6 +178,7 @@ const InlineEditor = React.memo(({
   onCancel: () => void
 }) => {
   const [localRow, setLocalRow] = useState<DebugDataRow>({ ...row })
+  const isMobile = useIsMobile()
   
   const correctType = localRow.Tipo && localRow.Tipo !== "Indefinido" 
     ? localRow.Tipo 
@@ -204,25 +221,31 @@ const InlineEditor = React.memo(({
   }, [])
 
   return (
-    <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-3">
+    <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-3 m-2 rounded-r-lg">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-          Editando: {row.Concepto.substring(0, 50)}...
-        </span>
-        <div className="flex gap-1">
-          <Button size="sm" variant="ghost" onClick={onCancel} className="h-7 px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600">
-            <X className="h-3 w-3" />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-yellow-800 dark:text-yellow-300 truncate">
+            {row.Concepto}
+          </div>
+          <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+            {row.Codigo} • {formatCurrencyMobile(row.Monto)}
+          </div>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <Button size="sm" variant="ghost" onClick={onCancel} className="h-8 w-8 p-0 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600">
+            <X className="h-4 w-4" />
           </Button>
-          <Button size="sm" onClick={handleQuickSave} className="h-7 px-2 bg-green-600 hover:bg-green-700 text-white">
-            <Check className="h-3 w-3" />
+          <Button size="sm" onClick={handleQuickSave} className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700 text-white">
+            <Check className="h-4 w-4" />
           </Button>
         </div>
       </div>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
         <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
           <Select value={localRow.Tipo} onValueChange={(value) => handleFieldChange('Tipo', value)}>
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+            <SelectTrigger className="h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -234,12 +257,13 @@ const InlineEditor = React.memo(({
         </div>
         
         <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sub categoría</label>
           <Select 
             value={localRow['Sub categoria']} 
             onValueChange={(value) => handleFieldChange('Sub categoria', value)}
             disabled={!correctType || correctType === "Indefinido"}
           >
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+            <SelectTrigger className="h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Sub categoría" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -252,12 +276,13 @@ const InlineEditor = React.memo(({
         </div>
         
         <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Clasificación</label>
           <Select 
             value={localRow.Clasificacion} 
             onValueChange={(value) => handleFieldChange('Clasificacion', value)}
             disabled={!localRow['Sub categoria'] || localRow['Sub categoria'] === "Sin Subcategoría"}
           >
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+            <SelectTrigger className="h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Clasificación" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -270,12 +295,13 @@ const InlineEditor = React.memo(({
         </div>
         
         <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría 1</label>
           <Select 
             value={localRow['Categoria 1']} 
             onValueChange={(value) => handleFieldChange('Categoria 1', value)}
             disabled={!localRow.Clasificacion || localRow.Clasificacion === "Sin Clasificación"}
           >
-            <SelectTrigger className="h-8 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
+            <SelectTrigger className="h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
               <SelectValue placeholder="Categoría 1" />
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
@@ -287,52 +313,127 @@ const InlineEditor = React.memo(({
           </Select>
         </div>
       </div>
-      
-      <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-        {formatCurrency(row.Monto)} • {row.Codigo} • {row.Planta}
-      </div>
     </div>
   )
 })
 
 InlineEditor.displayName = 'InlineEditor'
 
-export default function EnhancedDebugModal({ 
-  isOpen, 
-  onClose, 
-  data, 
+// Mobile-optimized row component
+const MobileDataRow = React.memo(({ 
+  row, 
+  isEditing, 
+  onEdit, 
+  onApplySuggestion,
+  suggestion,
+  status
+}: {
+  row: DebugDataRow
+  isEditing: boolean
+  onEdit: () => void
+  onApplySuggestion: () => void
+  suggestion: any
+  status: any
+}) => {
+  const statusIcon = {
+    'classified': <CheckCircle className="h-4 w-4 text-green-500" />,
+    'partial': <AlertTriangle className="h-4 w-4 text-orange-500" />,
+    'unclassified': <X className="h-4 w-4 text-red-500" />,
+    'hierarchy': <Info className="h-4 w-4 text-blue-500" />
+  }[status.status]
+
+  return (
+    <div className={`border-b border-gray-200 dark:border-gray-700 p-3 ${isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'}`}>
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {statusIcon}
+          <Badge variant={row.Tipo === 'Ingresos' ? 'default' : row.Tipo === 'Egresos' ? 'destructive' : 'secondary'} className="text-xs">
+            {row.Tipo}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          {suggestion && status.status !== 'classified' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onApplySuggestion}
+              className="h-8 w-8 p-0"
+              title="Aplicar sugerencia automática"
+            >
+              <Target className="h-3 w-3" />
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onEdit}
+            className="h-8 w-8 p-0"
+          >
+            <Edit className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+      
+      <div className="space-y-1">
+        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-2">
+          {row.Concepto}
+        </div>
+        <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+          <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">
+            {row.Codigo}
+          </code>
+          <span className={`font-mono font-medium ${row.Monto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {formatCurrencyMobile(row.Monto)}
+          </span>
+        </div>
+        <div className="text-xs text-gray-500 dark:text-gray-400">
+          {row['Categoria 1'] && row['Categoria 1'] !== 'Sin Categoría' ? row['Categoria 1'] : 'Sin categoría'}
+        </div>
+      </div>
+    </div>
+  )
+})
+
+MobileDataRow.displayName = 'MobileDataRow'
+
+export default function EnhancedDebugModal({
+  isOpen,
+  onClose,
+  data,
   onDataChange,
   validationSummary,
   onReturnToValidation
 }: EnhancedDebugModalProps) {
-  
-  // State management
-  const [editingRowId, setEditingRowId] = useState<string | null>(null)
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
-  const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({ field: 'Monto', direction: 'desc' })
-  
-  // Load cached preferences with SSR safety
-  const [selectedFilter, setSelectedFilter] = useState<string>(() => {
+  const [searchTerm, setSearchTerm] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(CACHE_KEYS.FILTER) || 'unclassified'
+      return localStorage.getItem(CACHE_KEYS.SEARCH) || ""
     }
-    return 'unclassified'
+    return ""
+  })
+  const [filterType, setFilterType] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(CACHE_KEYS.FILTER) || "all"
+    }
+    return "all"
+  })
+  const [sortConfig, setSortConfig] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(CACHE_KEYS.SORT)
+      return saved ? JSON.parse(saved) : { key: null, direction: 'asc' }
+    }
+    return { key: null, direction: 'asc' }
   })
   
-  const [searchTerm, setSearchTerm] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(CACHE_KEYS.SEARCH) || ''
-    }
-    return ''
-  })
+  const [editingRow, setEditingRow] = useState<string | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(25) // Reduced for mobile
+  const [localData, setLocalData] = useState(data)
+  
+  const isMobile = useIsMobile()
+  const tableRef = useRef<HTMLTableElement>(null)
 
-  // Cache preferences
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(CACHE_KEYS.FILTER, selectedFilter)
-    }
-  }, [selectedFilter])
-
+  // Save filter state to localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem(CACHE_KEYS.SEARCH, searchTerm)
@@ -341,442 +442,508 @@ export default function EnhancedDebugModal({
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      localStorage.setItem(CACHE_KEYS.FILTER, filterType)
+    }
+  }, [filterType])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       localStorage.setItem(CACHE_KEYS.SORT, JSON.stringify(sortConfig))
     }
   }, [sortConfig])
 
-  // Memoized event handlers for performance
-  const handleSort = useCallback((field: string) => {
-    setSortConfig(prev => ({
-      field,
-      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
-    }))
-  }, [])
-
-  const handleRowUpdate = useCallback((rowId: string, updates: Partial<DebugDataRow>) => {
-    const newData = data.map(row => {
-      const currentRowId = row.id || row.Codigo
-      if (currentRowId === rowId) {
-        const updatedRow = { ...row, ...updates }
-        
-        // Recalculate Monto when Tipo changes
-        if (updates.Tipo) {
-          const cargos = updatedRow.Cargos || 0
-          const abonos = updatedRow.Abonos || 0
-          
-          let newMonto = 0
-          if (updates.Tipo === "Ingresos") {
-            newMonto = abonos - cargos // Net income: Abonos minus any returns/adjustments in Cargos
-          } else if (updates.Tipo === "Egresos") {
-            newMonto = cargos - abonos // Net expense: Cargos minus any refunds/adjustments in Abonos
-          } else {
-            newMonto = abonos - cargos // Default logic for indefinido or other types
-          }
-          
-          updatedRow.Monto = newMonto
-        }
-        
-        return updatedRow
-      }
-      return row
-    })
-    onDataChange(newData)
-    setEditingRowId(null)
-  }, [data, onDataChange])
-
-  const handleBulkClassify = useCallback(() => {
-    const newData = data.map(row => {
-      const rowId = row.id || row.Codigo
-      if (selectedRows.has(rowId) && !isHierarchyRow(row.Codigo)) {
-        const suggestion = suggestClassification(row.Concepto, row.Codigo)
-        return { ...row, ...suggestion }
-      }
-      return row
-    })
-    onDataChange(newData)
-    setSelectedRows(new Set())
-  }, [data, selectedRows, onDataChange])
-
-  const handleCancelEdit = useCallback(() => {
-    setEditingRowId(null)
-  }, [])
-
-  // Optimized data processing with better memoization
-  const processedData = useMemo(() => {
-    // Apply filtering
-    const filtered = filterData(data, selectedFilter, searchTerm)
-    
-    // Apply sorting
-    const sorted = [...filtered].sort((a, b) => {
-      const aValue = sortConfig.field === 'Monto' ? a.Monto : (a[sortConfig.field as keyof DebugDataRow] as string)
-      const bValue = sortConfig.field === 'Monto' ? b.Monto : (b[sortConfig.field as keyof DebugDataRow] as string)
-      
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue
-      } else {
-        const aStr = String(aValue).toLowerCase()
-        const bStr = String(bValue).toLowerCase()
-        const comparison = aStr.localeCompare(bStr)
-        return sortConfig.direction === 'asc' ? comparison : -comparison
-      }
-    })
-
-    return sorted
-  }, [data, selectedFilter, searchTerm, sortConfig])
-
-  // Categorized data for statistics - optimized calculation
-  const categorizedData = useMemo(() => {
-    const stats = {
-      total: data.length,
-      hierarchy: 0,
-      totalDetail: 0,
-      classified: 0,
-      partial: 0,
-      unclassified: 0,
-      unclassifiedAmount: 0
-    }
-
-    data.forEach(row => {
-      const status = getClassificationStatus(row)
-      
-      if (status.status === 'hierarchy') {
-        stats.hierarchy++
-      } else {
-        stats.totalDetail++
-        
-        switch (status.status) {
-          case 'classified':
-            stats.classified++
-            break
-          case 'partial':
-            stats.partial++
-            break
-          case 'unclassified':
-          case 'untyped':
-            stats.unclassified++
-            stats.unclassifiedAmount += row.Monto
-            break
-        }
-      }
-    })
-
-    return stats
+  useEffect(() => {
+    setLocalData(data)
   }, [data])
 
-  // Calculate statistics with validation status
-  const stats = useMemo(() => {
-    const validationStatus = validationSummary?.isValid ? 'valid' : 'invalid'
-    
-    return {
-      ...categorizedData,
-      validationStatus,
-      hierarchyMatch: validationSummary ? {
-        ingresosMatch: Math.abs(validationSummary.variance.ingresos) <= 0.01,
-        egresosMatch: Math.abs(validationSummary.variance.egresos) <= 0.01
-      } : null
+  // Filter and sort data
+  const filteredAndSortedData = useMemo(() => {
+    let filtered = localData.filter(row => {
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        row.Codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.Concepto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.Planta.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      // Type filter
+      if (filterType === "all") return matchesSearch
+      if (filterType === "unclassified") {
+        const status = getClassificationStatus(row)
+        return matchesSearch && (status.status === 'error' || status.status === 'warning')
+      }
+      if (filterType === "hierarchy") {
+        return matchesSearch && isHierarchyRow(row.Codigo)
+      }
+      return matchesSearch && row.Tipo === filterType
+    })
+
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aValue = a[sortConfig.key as keyof DebugDataRow]
+        let bValue = b[sortConfig.key as keyof DebugDataRow]
+        
+        if (typeof aValue === 'string') aValue = aValue.toLowerCase()
+        if (typeof bValue === 'string') bValue = bValue.toLowerCase()
+        
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
+        return 0
+      })
     }
-  }, [categorizedData, validationSummary])
+
+    return filtered
+  }, [localData, searchTerm, filterType, sortConfig])
+
+  // Pagination
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    return filteredAndSortedData.slice(startIndex, startIndex + itemsPerPage)
+  }, [filteredAndSortedData, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(filteredAndSortedData.length / itemsPerPage)
+
+  // Handle sorting
+  const handleSort = (key: keyof DebugDataRow) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  // Handle row updates
+  const handleRowUpdate = useCallback((rowId: string, field: keyof DebugDataRow, value: any) => {
+    setLocalData(prev => prev.map(row => 
+      row.Codigo === rowId ? { ...row, [field]: value } : row
+    ))
+    setHasUnsavedChanges(true)
+  }, [])
+
+  // Auto-suggestion system
+  const getAutoSuggestion = useCallback((row: DebugDataRow) => {
+    const suggestion = suggestClassification(row.Codigo, row.Concepto)
+    return suggestion
+  }, [])
+
+  // Apply auto-suggestion to row
+  const applyAutoSuggestion = useCallback((rowId: string) => {
+    const row = localData.find(r => r.Codigo === rowId)
+    if (!row) return
+    
+    const suggestion = getAutoSuggestion(row)
+    if (suggestion) {
+      setLocalData(prev => prev.map(r => 
+        r.Codigo === rowId ? { ...r, ...suggestion } : r
+      ))
+      setHasUnsavedChanges(true)
+    }
+  }, [localData, getAutoSuggestion])
+
+  // Save changes
+  const handleSaveChanges = useCallback(() => {
+    onDataChange(localData)
+    setHasUnsavedChanges(false)
+    setEditingRow(null)
+  }, [localData, onDataChange])
+
+  // Reset changes
+  const handleResetChanges = useCallback(() => {
+    setLocalData(data)
+    setHasUnsavedChanges(false)
+    setEditingRow(null)
+  }, [data])
+
+  // Statistics
+  const stats = useMemo(() => {
+    const total = filteredAndSortedData.length
+    const classified = filteredAndSortedData.filter(row => {
+      const status = getClassificationStatus(row)
+      return status.status === 'success'
+    }).length
+    const unclassified = total - classified
+    const hierarchy = filteredAndSortedData.filter(row => isHierarchyRow(row.Codigo)).length
+    
+    return { total, classified, unclassified, hierarchy }
+  }, [filteredAndSortedData])
+
+  // Mobile-specific handlers
+  const handleMobileRowSelect = useCallback((rowId: string) => {
+    setEditingRow(editingRow === rowId ? null : rowId)
+  }, [editingRow])
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between text-gray-900 dark:text-gray-100">
-            <div className="flex items-center gap-3">
-              <Target className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <span>Validación de Totales Jerárquicos</span>
-              <Badge variant={stats.validationStatus === 'valid' ? "default" : "destructive"}>
-                {stats.validationStatus === 'valid' ? 'Totales Coinciden' : 'Verificar Totales'}
-              </Badge>
-            </div>
-          </DialogTitle>
-          <DialogDescription className="text-gray-600 dark:text-gray-300">
-            Revisa y ajusta las clasificaciones para que los totales clasificados coincidan con las metas jerárquicas. 
-            No todos los elementos necesitan clasificación.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className={`${isMobile ? 'max-w-[100vw] max-h-[100vh] w-[100vw] h-[100vh] rounded-none' : 'max-w-[95vw] max-h-[95vh] w-[95vw]'} p-0 overflow-hidden`}>
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className={`${isMobile ? 'px-4 py-3' : 'p-6'} border-b bg-white dark:bg-gray-800 flex-shrink-0`}>
+            <DialogHeader className="space-y-1">
+              <DialogTitle className={`flex items-center gap-2 ${isMobile ? 'text-lg' : 'text-xl'}`}>
+                <Target className={`${isMobile ? 'h-5 w-5' : 'h-6 w-6'} text-blue-600`} />
+                Debug de Datos
+              </DialogTitle>
+              <DialogDescription className={`${isMobile ? 'text-sm' : 'text-base'}`}>
+                Verificar, editar y clasificar datos
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-        {/* Hierarchy Validation Summary */}
-        {validationSummary && (
-          <Alert className={validationSummary.isValid ? "border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20" : "border-orange-200 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/20"}>
-            <Target className="h-4 w-4 text-gray-700 dark:text-gray-300" />
-            <AlertDescription className="text-gray-700 dark:text-gray-300">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
-                    <strong>Ingresos:</strong>
-                  </span>
-                  <div className="text-right">
-                    <div className="text-sm">Meta: {formatCurrency(validationSummary.hierarchyTotals.ingresos)}</div>
-                    <div className="text-sm">Clasificado: {formatCurrency(validationSummary.classifiedTotals.ingresos)}</div>
-                    <div className={`text-sm font-medium ${Math.abs(validationSummary.variance.ingresos) <= 0.01 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      Diferencia: {formatCurrency(validationSummary.variance.ingresos)}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
-                    <strong>Egresos:</strong>
-                  </span>
-                  <div className="text-right">
-                    <div className="text-sm">Meta: {formatCurrency(validationSummary.hierarchyTotals.egresos)}</div>
-                    <div className="text-sm">Clasificado: {formatCurrency(validationSummary.classifiedTotals.egresos)}</div>
-                    <div className={`text-sm font-medium ${Math.abs(validationSummary.variance.egresos) <= 0.01 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      Diferencia: {formatCurrency(validationSummary.variance.egresos)}
-                    </div>
-                  </div>
-                </div>
+          {/* Stats Bar */}
+          <div className={`${isMobile ? 'px-4 py-2' : 'p-4'} bg-gray-50 dark:bg-gray-900 border-b flex-shrink-0`}>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div>
+                <div className={`${isMobile ? 'text-lg font-bold' : 'text-2xl font-bold'} text-blue-600`}>{stats.total}</div>
+                <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Total</div>
               </div>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-            <CardContent className="p-3">
-              <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{stats.totalDetail}</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Registros Detalle</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-            <CardContent className="p-3">
-              <div className="text-xl font-bold text-green-600 dark:text-green-400">{stats.classified}</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Clasificados</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-            <CardContent className="p-3">
-              <div className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{stats.partial}</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Parciales</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-            <CardContent className="p-3">
-              <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{stats.unclassified}</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Sin Clasificar</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-            <CardContent className="p-3">
-              <div className="text-sm font-bold text-purple-600 dark:text-purple-400">{formatCurrency(stats.unclassifiedAmount)}</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Monto Pendiente</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Search and Filter Controls */}
-        <div className="flex flex-col md:flex-row gap-4 mb-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
-              <Input
-                placeholder="Buscar por concepto, código o planta..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-              />
+              <div>
+                <div className={`${isMobile ? 'text-lg font-bold' : 'text-2xl font-bold'} text-green-600`}>{stats.classified}</div>
+                <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Clasificados</div>
+              </div>
+              <div>
+                <div className={`${isMobile ? 'text-lg font-bold' : 'text-2xl font-bold'} text-orange-600`}>{stats.unclassified}</div>
+                <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Sin clasificar</div>
+              </div>
+              <div>
+                <div className={`${isMobile ? 'text-lg font-bold' : 'text-2xl font-bold'} text-gray-600`}>{stats.hierarchy}</div>
+                <div className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600`}>Jerárquicos</div>
+              </div>
             </div>
-          </div>
-          <Select value={selectedFilter} onValueChange={setSelectedFilter}>
-            <SelectTrigger className="w-64 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-              <SelectItem value="unclassified" className="text-gray-900 dark:text-gray-100">🔍 Sin Clasificar</SelectItem>
-              <SelectItem value="partial" className="text-gray-900 dark:text-gray-100">⚡ Clasificación Parcial</SelectItem>
-              <SelectItem value="classified" className="text-gray-900 dark:text-gray-100">✅ Clasificados</SelectItem>
-              <SelectItem value="hierarchy" className="text-gray-900 dark:text-gray-100">📊 Totales Jerárquicos</SelectItem>
-              <SelectItem value="detail" className="text-gray-900 dark:text-gray-100">📋 Todos los Detalles</SelectItem>
-              <SelectItem value="ingresos" className="text-gray-900 dark:text-gray-100">💰 Solo Ingresos</SelectItem>
-              <SelectItem value="egresos" className="text-gray-900 dark:text-gray-100">💸 Solo Egresos</SelectItem>
-              <SelectItem value="all" className="text-gray-900 dark:text-gray-100">🗂️ Todos los Registros</SelectItem>
-            </SelectContent>
-          </Select>
-          {selectedRows.size > 0 && (
-            <Button onClick={handleBulkClassify} variant="outline" className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Auto-clasificar ({selectedRows.size})
-            </Button>
-          )}
-        </div>
-
-        {/* Info about allowing unclassified items */}
-        {selectedFilter === "unclassified" && (
-          <Alert className="mb-4 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
-            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <AlertDescription className="text-gray-700 dark:text-gray-300">
-              <strong>Nota:</strong> No todos los elementos necesitan clasificación. Algunos registros pueden permanecer 
-              sin clasificar si no forman parte del sistema de clasificación principal. El objetivo es que los totales 
-              clasificados coincidan con las metas jerárquicas.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Data Table */}
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-[400px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                  <TableHead className="w-12 text-gray-700 dark:text-gray-300">
-                    <input
-                      type="checkbox"
-                      checked={selectedRows.size === processedData.length && processedData.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedRows(new Set(processedData.filter(row => !isHierarchyRow(row.Codigo)).map(row => row.id || row.Codigo)))
-                        } else {
-                          setSelectedRows(new Set())
-                        }
-                      }}
-                      className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                    />
-                  </TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300">Estado</TableHead>
-                  <TableHead className="cursor-pointer text-gray-700 dark:text-gray-300" onClick={() => handleSort('Concepto')}>
-                    <div className="flex items-center">
-                      Concepto <ArrowUpDown className="ml-1 h-4 w-4" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300">Código</TableHead>
-                  <TableHead className="cursor-pointer text-right text-gray-700 dark:text-gray-300" onClick={() => handleSort('Monto')}>
-                    <div className="flex items-center justify-end">
-                      Monto <ArrowUpDown className="ml-1 h-4 w-4" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300">Tipo</TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300">Categoría 1</TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {processedData.map((row) => {
-                  const rowId = row.id || row.Codigo
-                  const status = getClassificationStatus(row)
-                  const isEditing = editingRowId === rowId
-                  const isHierarchy = isHierarchyRow(row.Codigo)
-                  
-                  if (isEditing) {
-                    return (
-                      <TableRow key={`edit-${rowId}`}>
-                        <TableCell colSpan={8}>
-                          <InlineEditor
-                            row={row}
-                            onUpdate={(updates) => handleRowUpdate(rowId, updates)}
-                            onCancel={handleCancelEdit}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )
-                  }
-
-                  return (
-                    <TableRow 
-                      key={rowId} 
-                      className={`
-                        hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-200 dark:border-gray-700
-                        ${isHierarchy ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500 dark:border-l-blue-400' : ''}
-                        ${status.status === 'classified' ? 'bg-green-50 dark:bg-green-900/20' : ''}
-                        ${status.status === 'untyped' ? 'bg-red-50 dark:bg-red-900/20' : ''}
-                      `}
-                    >
-                      <TableCell className="text-gray-900 dark:text-gray-100">
-                        {!isHierarchy && (
-                          <input
-                            type="checkbox"
-                            checked={selectedRows.has(rowId)}
-                            onChange={(e) => {
-                              const newSelectedRows = new Set(selectedRows)
-                              if (e.target.checked) {
-                                newSelectedRows.add(rowId)
-                              } else {
-                                newSelectedRows.delete(rowId)
-                              }
-                              setSelectedRows(newSelectedRows)
-                            }}
-                            className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell className="text-gray-900 dark:text-gray-100">
-                        <Badge 
-                          variant={
-                            status.color === 'green' ? 'default' : 
-                            status.color === 'blue' ? 'secondary' :
-                            status.color === 'yellow' ? 'outline' : 'destructive'
-                          }
-                          className={`text-xs ${
-                            status.color === 'yellow' ? 'border-yellow-500 dark:border-yellow-400 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20' :
-                            status.color === 'gray' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' : ''
-                          }`}
-                        >
-                          {status.message}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] text-gray-900 dark:text-gray-100">
-                        <div className="truncate" title={row.Concepto}>
-                          {row.Concepto}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm text-gray-900 dark:text-gray-100">{row.Codigo}</TableCell>
-                      <TableCell className="text-right font-medium text-gray-900 dark:text-gray-100">
-                        {formatCurrency(row.Monto)}
-                      </TableCell>
-                      <TableCell className="text-gray-900 dark:text-gray-100">
-                        <Badge variant="outline" className="text-xs border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                          {row.Tipo || 'Sin tipo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[150px] text-gray-900 dark:text-gray-100">
-                        <div className="truncate text-sm" title={row['Categoria 1']}>
-                          {row['Categoria 1'] || 'Sin categoría'}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-gray-900 dark:text-gray-100">
-                        {!isHierarchy && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setEditingRowId(rowId)}
-                            className="h-7 px-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600"
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                        )}
-                        {isHierarchy && (
-                          <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                            Total de Control
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        </div>
-
-        <DialogFooter className="flex justify-between border-t border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Mostrando {processedData.length} de {data.length} registros
-          </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700">
-              Cerrar
-            </Button>
-            {onReturnToValidation && (
-              <Button onClick={onReturnToValidation} className="bg-green-600 hover:bg-green-700 text-white">
-                <Save className="h-4 w-4 mr-2" />
-                Volver a Validación
-              </Button>
+            
+            {isMobile && hasUnsavedChanges && (
+              <div className="mt-2 flex justify-center">
+                <Badge variant="destructive" className="text-xs">
+                  <Edit className="h-3 w-3 mr-1" />
+                  Cambios sin guardar
+                </Badge>
+              </div>
             )}
           </div>
-        </DialogFooter>
+
+          {/* Controls */}
+          <div className={`${isMobile ? 'px-4 py-3' : 'p-4'} bg-white dark:bg-gray-800 border-b flex-shrink-0`}>
+            <div className="space-y-3">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por código o concepto..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={`pl-10 ${isMobile ? 'h-12 text-base' : 'h-10'}`}
+                />
+              </div>
+              
+              {/* Filter and Actions */}
+              <div className={`${isMobile ? 'flex gap-2' : 'flex items-center justify-between gap-4'}`}>
+                <div className={`${isMobile ? 'flex-1' : 'flex-none'}`}>
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className={`${isMobile ? 'h-12 text-base' : 'w-40'}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="unclassified">Sin Clasificar</SelectItem>
+                      <SelectItem value="Ingresos">Ingresos</SelectItem>
+                      <SelectItem value="Egresos">Egresos</SelectItem>
+                      <SelectItem value="hierarchy">Jerárquicos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Action Buttons */}
+                <div className={`${isMobile ? 'flex gap-2' : 'flex items-center gap-2'}`}>
+                  <Button
+                    variant="outline"
+                    size={isMobile ? "default" : "default"}
+                    onClick={handleResetChanges}
+                    disabled={!hasUnsavedChanges}
+                    className={`${isMobile ? 'h-12 px-4' : ''}`}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Reiniciar
+                  </Button>
+                  
+                  <Button
+                    onClick={handleSaveChanges}
+                    disabled={!hasUnsavedChanges}
+                    size={isMobile ? "default" : "default"}
+                    className={`${isMobile ? 'h-12 px-4' : ''}`}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Guardar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Data Display */}
+          <div className="flex-1 overflow-auto">
+            {isMobile ? (
+              // Mobile Card Layout
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {paginatedData.map((row) => {
+                  const status = getClassificationStatus(row)
+                  const isEditing = editingRow === row.Codigo
+                  const suggestion = getAutoSuggestion(row)
+                  
+                  return (
+                    <div key={row.Codigo}>
+                      <MobileDataRow
+                        row={row}
+                        isEditing={isEditing}
+                        onEdit={() => handleMobileRowSelect(row.Codigo)}
+                        onApplySuggestion={() => applyAutoSuggestion(row.Codigo)}
+                        suggestion={suggestion}
+                        status={status}
+                      />
+                      {isEditing && (
+                        <InlineEditor
+                          row={row}
+                          onUpdate={(updates) => {
+                            Object.entries(updates).forEach(([field, value]) => {
+                              handleRowUpdate(row.Codigo, field as keyof DebugDataRow, value)
+                            })
+                            setEditingRow(null)
+                          }}
+                          onCancel={() => setEditingRow(null)}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              // Desktop Table Layout
+              <div className="overflow-auto">
+                <table ref={tableRef} className="w-full border-collapse">
+                  <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-3 text-left border-b font-medium text-gray-600 dark:text-gray-300 text-sm">
+                        Estado
+                      </th>
+                      <th className="px-4 py-3 text-left border-b font-medium text-gray-600 dark:text-gray-300 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('Codigo')}>
+                        <div className="flex items-center gap-1">
+                          Código
+                          <ArrowUpDown className="h-4 w-4" />
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-left border-b font-medium text-gray-600 dark:text-gray-300 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('Concepto')}>
+                        <div className="flex items-center gap-1">
+                          Concepto
+                          <ArrowUpDown className="h-4 w-4" />
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-right border-b font-medium text-gray-600 dark:text-gray-300 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('Monto')}>
+                        <div className="flex items-center justify-end gap-1">
+                          Monto
+                          <ArrowUpDown className="h-4 w-4" />
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-left border-b font-medium text-gray-600 dark:text-gray-300 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('Tipo')}>
+                        <div className="flex items-center gap-1">
+                          Tipo
+                          <ArrowUpDown className="h-4 w-4" />
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-left border-b font-medium text-gray-600 dark:text-gray-300 text-sm">
+                        Categoría 1
+                      </th>
+                      <th className="px-4 py-3 text-center border-b font-medium text-gray-600 dark:text-gray-300 text-sm">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((row) => {
+                      const status = getClassificationStatus(row)
+                      const isEditing = editingRow === row.Codigo
+                      const suggestion = getAutoSuggestion(row)
+                      
+                      return (
+                        <tr 
+                          key={row.Codigo} 
+                          className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800 ${isEditing ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                        >
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex items-center gap-2">
+                              {status.status === 'classified' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                              {status.status === 'partial' && <AlertTriangle className="h-4 w-4 text-orange-500" />}
+                              {status.status === 'unclassified' && <X className="h-4 w-4 text-red-500" />}
+                              {status.status === 'hierarchy' && <Info className="h-4 w-4 text-blue-500" />}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <code className="text-sm bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded block">
+                              {row.Codigo}
+                            </code>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <div className="text-sm max-w-xs break-words" title={row.Concepto}>
+                              {row.Concepto}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top text-right">
+                            <div className={`text-sm font-mono ${row.Monto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(row.Monto)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            {isEditing ? (
+                              <Select
+                                value={row.Tipo}
+                                onValueChange={(value) => handleRowUpdate(row.Codigo, 'Tipo', value)}
+                              >
+                                <SelectTrigger className="w-32 h-8 text-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Ingresos">Ingresos</SelectItem>
+                                  <SelectItem value="Egresos">Egresos</SelectItem>
+                                  <SelectItem value="Indefinido">Indefinido</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Badge variant={row.Tipo === 'Ingresos' ? 'default' : row.Tipo === 'Egresos' ? 'destructive' : 'secondary'}>
+                                {row.Tipo}
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            {isEditing ? (
+                              <Input
+                                value={row['Categoria 1']}
+                                onChange={(e) => handleRowUpdate(row.Codigo, 'Categoria 1', e.target.value)}
+                                className="w-32 h-8 text-sm"
+                                placeholder="Categoría..."
+                              />
+                            ) : (
+                              <div className="text-sm max-w-xs break-words" title={row['Categoria 1']}>
+                                {row['Categoria 1'] || 'Sin categoría'}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 align-top text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingRow(isEditing ? null : row.Codigo)}
+                                className="h-8 w-8 p-0"
+                              >
+                                {isEditing ? <Check className="h-3 w-3" /> : <Edit className="h-3 w-3" />}
+                              </Button>
+                              
+                              {suggestion && status.status !== 'classified' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => applyAutoSuggestion(row.Codigo)}
+                                  className="h-8 w-8 p-0"
+                                  title="Aplicar sugerencia automática"
+                                >
+                                  <Target className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Pagination */}
+          <div className={`${isMobile ? 'px-4 py-3' : 'p-4'} border-t bg-white dark:bg-gray-800 flex-shrink-0`}>
+            <div className={`${isMobile ? 'space-y-2' : 'flex items-center justify-between'}`}>
+              <div className={`${isMobile ? 'text-sm text-center' : 'text-sm'} text-gray-600`}>
+                {filteredAndSortedData.length > 0 ? (
+                  <>
+                    Mostrando {Math.min((currentPage - 1) * itemsPerPage + 1, filteredAndSortedData.length)} a{' '}
+                    {Math.min(currentPage * itemsPerPage, filteredAndSortedData.length)} de {filteredAndSortedData.length}
+                  </>
+                ) : (
+                  'No hay registros'
+                )}
+              </div>
+              
+              <div className={`${isMobile ? 'flex justify-center items-center gap-2' : 'flex items-center gap-2'}`}>
+                <Button
+                  variant="outline"
+                  size={isMobile ? "default" : "sm"}
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className={`${isMobile ? 'h-12 px-4' : ''}`}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  {!isMobile && 'Anterior'}
+                </Button>
+                
+                <div className={`${isMobile ? 'text-sm px-4' : 'text-sm px-2'} text-gray-600`}>
+                  {currentPage} / {totalPages}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size={isMobile ? "default" : "sm"}
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className={`${isMobile ? 'h-12 px-4' : ''}`}
+                >
+                  {!isMobile && 'Siguiente'}
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className={`${isMobile ? 'px-4 py-3' : 'p-4'} border-t bg-gray-50 dark:bg-gray-900 flex-shrink-0`}>
+            <div className={`${isMobile ? 'space-y-2' : 'flex items-center justify-between'}`}>
+              <div className={`${isMobile ? 'order-2' : ''}`}>
+                {validationSummary && onReturnToValidation && (
+                  <Button
+                    variant="outline"
+                    onClick={onReturnToValidation}
+                    size={isMobile ? "default" : "default"}
+                    className={`${isMobile ? 'w-full h-12 text-base' : ''}`}
+                  >
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                    Volver a Validación
+                  </Button>
+                )}
+              </div>
+              
+              <div className={`${isMobile ? 'flex gap-2 order-1' : 'flex items-center gap-2'}`}>
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                  size={isMobile ? "default" : "default"}
+                  className={`${isMobile ? 'flex-1 h-12 text-base' : ''}`}
+                >
+                  Cerrar
+                </Button>
+                
+                <Button
+                  onClick={handleSaveChanges}
+                  disabled={!hasUnsavedChanges}
+                  size={isMobile ? "default" : "default"}
+                  className={`${isMobile ? 'flex-1 h-12 text-base' : ''}`}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
