@@ -477,21 +477,17 @@ export default function EnhancedDebugModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`${
-        isMobile 
-          ? 'fixed inset-0 w-full h-full max-w-none max-h-none m-0 rounded-none border-0 p-0 overflow-hidden' 
-          : 'max-w-7xl max-h-[95vh] w-[95vw] p-0 overflow-hidden'
-      }`}>
-        <div className={`flex flex-col h-full ${isMobile ? '' : 'max-h-[95vh]'}`}>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] w-[95vw] p-0 overflow-hidden">
+        <div className="flex flex-col h-full max-h-[95vh]">
           {/* Header */}
-          <div className={`${isMobile ? 'p-4 border-b' : 'p-6 border-b'} bg-white dark:bg-gray-800 flex-shrink-0`}>
+          <div className="p-6 border-b bg-white dark:bg-gray-800 flex-shrink-0">
             <DialogHeader className="space-y-2">
-              <DialogTitle className={`flex items-center gap-2 ${isMobile ? 'text-lg' : 'text-xl'}`}>
-                <Target className={`${isMobile ? 'h-5 w-5' : 'h-6 w-6'} text-blue-600`} />
-                {isMobile ? 'Debug de Datos' : 'Debug de Datos Financieros'}
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <Target className="h-6 w-6 text-blue-600" />
+                Debug de Datos Financieros
               </DialogTitle>
-              <DialogDescription className={`${isMobile ? 'text-sm' : 'text-base'}`}>
-                {isMobile ? 'Verificar y clasificar datos' : 'Verificar, editar y clasificar datos del archivo Excel'}
+              <DialogDescription className="text-base">
+                Verificar, editar y clasificar datos del archivo Excel
               </DialogDescription>
             </DialogHeader>
           </div>
