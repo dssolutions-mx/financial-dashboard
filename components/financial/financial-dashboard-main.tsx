@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronRight, Calculator, Upload, Eye, Download, Database, Calendar, DollarSign } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { handleBalanzaFileUpload, type DebugDataRow } from "@/lib/services/excel-processor"
 import { validationEngine, ValidationSummary, ReportMetadata } from "@/lib/services/validation-service"
 import { SupabaseStorageService, FinancialReport, PlantVolume, CashSale } from "@/lib/supabase/storage"
@@ -135,6 +136,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
   
   const storageService = new SupabaseStorageService()
   const { toast } = useToast()
+  const isMobile = useIsMobile()
 
   // Update local data when initialData changes
   useEffect(() => {
@@ -584,28 +586,35 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
   }
 
   return (
-    <div className="p-6 bg-gray-50 dark:bg-gray-900 w-full max-w-full overflow-auto relative" style={{ maxHeight: "calc(100vh - 4rem)" }}>
-      {/* Header Section */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 bg-green-800 rounded-md flex items-center justify-center text-white font-bold">
+    <div className={`p-3 md:p-6 bg-gray-50 dark:bg-gray-900 w-full max-w-full overflow-auto relative ${
+      isMobile ? 'pb-20' : ''
+    }`} style={{ maxHeight: "calc(100vh - 4rem)" }}>
+      {/* Mobile-optimized Header Section */}
+      <div className={`mb-4 md:mb-6 ${isMobile ? 'space-y-4' : 'flex flex-col md:flex-row md:items-center md:justify-between gap-4'}`}>
+        {/* Title and Logo */}
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className={`${isMobile ? 'h-10 w-10' : 'h-12 w-12'} bg-green-800 rounded-md flex items-center justify-center text-white font-bold`}>
             DC
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
-            REPORTE DE INGRESOS Y EGRESOS
+          <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-gray-800 dark:text-gray-100 ${isMobile ? 'leading-tight' : 'whitespace-nowrap'}`}>
+            {isMobile ? "INGRESOS Y EGRESOS" : "REPORTE DE INGRESOS Y EGRESOS"}
           </h1>
         </div>
-        <div className="flex items-center gap-4 flex-wrap">
+
+        {/* Controls Section */}
+        <div className={`${isMobile ? 'space-y-3' : 'flex items-center gap-4 flex-wrap'}`}>
           {/* Category Dropdown */}
-          <div className="flex items-center space-x-2 min-w-[180px]">
-            <label htmlFor="category-select" className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+          <div className={`flex items-center space-x-2 ${isMobile ? 'w-full' : 'min-w-[180px]'}`}>
+            <label htmlFor="category-select" className={`text-sm text-gray-600 dark:text-gray-300 ${isMobile ? 'flex-shrink-0' : 'whitespace-nowrap'}`}>
               CATEGORÍA 1
             </label>
             <select
               id="category-select"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="border rounded px-2 py-1 w-full text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+              className={`border rounded px-2 py-1 w-full text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 ${
+                isMobile ? 'h-12' : ''
+              }`}
             >
               {categories.map((category) => (
                 <option key={category} value={category}>
@@ -618,20 +627,20 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
           {/* Unit Price View Toggle */}
           <Button
             variant={showUnitPriceView ? "default" : "outline"}
-            size="sm"
+            size={isMobile ? "default" : "sm"}
             onClick={() => setShowUnitPriceView(!showUnitPriceView)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${
+            className={`flex items-center gap-2 ${isMobile ? 'px-4 py-3 h-12 w-full justify-center' : 'px-3 py-1.5'} rounded-lg text-sm ${
               showUnitPriceView 
                 ? "bg-blue-600 text-white hover:bg-blue-700" 
                 : "border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800"
             }`}
           >
-            <Calculator size={14} /> 
+            <Calculator size={isMobile ? 16 : 14} /> 
             {showUnitPriceView ? "Ver Totales" : "Ver Precio por m³"}
           </Button>
 
           {/* Action Buttons */}
-          <div className="flex items-center space-x-2">
+          <div className={`${isMobile ? 'grid grid-cols-1 gap-2' : 'flex items-center space-x-2'}`}>
             <input
               type="file"
               accept=".xlsx,.xls"
@@ -642,32 +651,34 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
             />
             <label
               htmlFor="excel-upload"
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-colors text-sm ${
+              className={`flex items-center gap-2 ${isMobile ? 'px-4 py-3 h-12 justify-center' : 'px-3 py-1.5'} rounded-lg cursor-pointer transition-colors text-sm ${
                 isProcessing
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                   : "bg-green-700 text-white hover:bg-green-800"
               }`}
             >
-              <Upload size={14} /> 
+              <Upload size={isMobile ? 16 : 14} /> 
               {isProcessing ? "Procesando..." : "Cargar Excel"}
             </label>
+            
             <Button
               variant="outline"
-              size="sm" 
+              size={isMobile ? "default" : "sm"}
               onClick={() => setIsDebugModalOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
+              className={`flex items-center gap-2 ${isMobile ? 'px-4 py-3 h-12 justify-center' : 'px-3 py-1.5'} rounded-lg border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200`}
               disabled={data.length === 0}
             >
-              <Eye size={14} /> 
+              <Eye size={isMobile ? 16 : 14} /> 
               Verificar
             </Button>
+            
             <Button
               variant="outline"
-              size="sm" 
+              size={isMobile ? "default" : "sm"}
               onClick={() => setShowReportSelector(!showReportSelector)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
+              className={`flex items-center gap-2 ${isMobile ? 'px-4 py-3 h-12 justify-center' : 'px-3 py-1.5'} rounded-lg border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200`}
             >
-              <Database size={14} /> 
+              <Database size={isMobile ? 16 : 14} /> 
               {showReportSelector ? "Ocultar Reportes" : "Ver Reportes"}
             </Button>
           </div>
@@ -676,15 +687,15 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
 
       {/* Volume Data Button */}
       {currentMonth && currentYear && (
-        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className={`mb-4 md:mb-6 p-3 md:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700`}>
+          <div className={`${isMobile ? 'space-y-3' : 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'}`}>
             <div className="flex items-center gap-3">
-              <Calendar size={20} className="text-blue-600 dark:text-blue-400" />
+              <Calendar size={isMobile ? 18 : 20} className="text-blue-600 dark:text-blue-400" />
               <div>
-                <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                <h3 className={`${isMobile ? 'text-sm' : 'text-sm'} font-medium text-blue-900 dark:text-blue-100`}>
                   Datos de Volumen - {currentMonth}/{currentYear}
                 </h3>
-                <p className="text-xs text-blue-700 dark:text-blue-300">
+                <p className={`${isMobile ? 'text-xs' : 'text-xs'} text-blue-700 dark:text-blue-300`}>
                   {isLoadingVolumes ? "Cargando datos..." : "Configure los metros cúbicos para cada planta"}
                 </p>
               </div>
@@ -693,10 +704,12 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
               <Button
                 onClick={() => setIsVolumeModalOpen(true)}
                 disabled={isLoadingVolumes}
-                size="sm"
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                size={isMobile ? "default" : "sm"}
+                className={`flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white ${
+                  isMobile ? 'px-4 py-3 h-12 w-full justify-center' : ''
+                }`}
               >
-                <Database size={14} />
+                <Database size={isMobile ? 16 : 14} />
                 Configurar Volúmenes
               </Button>
             </div>
@@ -706,15 +719,15 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
 
       {/* Cash Sales Data Button */}
       {currentMonth && currentYear && (
-        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className={`mb-4 md:mb-6 p-3 md:p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700`}>
+          <div className={`${isMobile ? 'space-y-3' : 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'}`}>
             <div className="flex items-center gap-3">
-              <DollarSign size={20} className="text-green-600 dark:text-green-400" />
+              <DollarSign size={isMobile ? 18 : 20} className="text-green-600 dark:text-green-400" />
               <div>
-                <h3 className="text-sm font-medium text-green-900 dark:text-green-100">
+                <h3 className={`${isMobile ? 'text-sm' : 'text-sm'} font-medium text-green-900 dark:text-green-100`}>
                   Ventas en Efectivo - {currentMonth}/{currentYear}
                 </h3>
-                <p className="text-xs text-green-700 dark:text-green-300">
+                <p className={`${isMobile ? 'text-xs' : 'text-xs'} text-green-700 dark:text-green-300`}>
                   {isLoadingCashSales ? "Cargando datos..." : "Configure las ventas en efectivo (no fiscales)"}
                 </p>
               </div>
@@ -723,10 +736,12 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
               <Button
                 onClick={() => setIsCashSalesModalOpen(true)}
                 disabled={isLoadingCashSales}
-                size="sm"
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                size={isMobile ? "default" : "sm"}
+                className={`flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white ${
+                  isMobile ? 'px-4 py-3 h-12 w-full justify-center' : ''
+                }`}
               >
-                <DollarSign size={14} />
+                <DollarSign size={isMobile ? 16 : 14} />
                 Configurar Ventas en Efectivo
               </Button>
             </div>
@@ -734,15 +749,13 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
         </div>
       )}
 
-
-
       {/* Unit Buttons */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className={`${isMobile ? 'grid grid-cols-2 gap-2 mb-4' : 'flex flex-wrap gap-2 mb-6'}`}>
         {Object.keys(unitToPlants).map((unit) => (
           <button
             key={unit}
             onClick={() => toggleUnit(unit)}
-            className={`p-2 text-center rounded-lg transition-colors flex-1 min-w-[100px] border text-sm ${
+            className={`${isMobile ? 'p-3 h-12' : 'p-2'} text-center rounded-lg transition-colors flex-1 min-w-[100px] border text-sm ${
               selectedUnits.includes(unit)
                 ? "bg-green-800 text-white border-green-900"
                 : "bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200"
@@ -753,7 +766,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
         ))}
         <button
           onClick={() => setSelectedUnits(["ALL"])}
-          className={`p-2 text-center rounded-lg transition-colors flex-1 min-w-[100px] border text-sm ${
+          className={`${isMobile ? 'p-3 h-12' : 'p-2'} text-center rounded-lg transition-colors flex-1 min-w-[100px] border text-sm ${
             selectedUnits.includes("ALL")
               ? "bg-green-800 text-white border-green-900"
               : "bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200"
@@ -764,31 +777,31 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <Card className="p-3 bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700">
-          <h3 className="text-xs text-gray-600 dark:text-gray-400">INGRESOS TOTALES</h3>
-          <p className="text-lg font-bold text-gray-800 dark:text-gray-100">{formatMoney(summaryData.ingresos, true)}</p>
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+      <div className={`${isMobile ? 'grid grid-cols-1 gap-3 mb-4' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6'}`}>
+        <Card className={`${isMobile ? 'p-4' : 'p-3'} bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700`}>
+          <h3 className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-600 dark:text-gray-400`}>INGRESOS TOTALES</h3>
+          <p className={`${isMobile ? 'text-xl' : 'text-lg'} font-bold text-gray-800 dark:text-gray-100`}>{formatMoney(summaryData.ingresos, true)}</p>
+          <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-500 dark:text-gray-400 mt-1`}>
             <div>Fiscal: {formatMoney(summaryData.ingresos - getTotalCashSalesRevenue(getVisiblePlants()), true)}</div>
             <div>Efectivo: {formatMoney(getTotalCashSalesRevenue(getVisiblePlants()), true)}</div>
           </div>
         </Card>
-        <Card className="p-3 bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700">
-          <h3 className="text-xs text-gray-600 dark:text-gray-400">EGRESOS</h3>
-          <p className="text-lg font-bold text-gray-800 dark:text-gray-100">{formatMoney(summaryData.egresos, true)}</p>
+        <Card className={`${isMobile ? 'p-4' : 'p-3'} bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700`}>
+          <h3 className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-600 dark:text-gray-400`}>EGRESOS</h3>
+          <p className={`${isMobile ? 'text-xl' : 'text-lg'} font-bold text-gray-800 dark:text-gray-100`}>{formatMoney(summaryData.egresos, true)}</p>
         </Card>
-        <Card className="p-3 bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700">
-          <h3 className="text-xs text-gray-600 dark:text-gray-400">UTILIDAD BRUTA</h3>
-          <p className="text-lg font-bold text-gray-800 dark:text-gray-100">{formatMoney(summaryData.utilidadBruta, true)}</p>
+        <Card className={`${isMobile ? 'p-4' : 'p-3'} bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700`}>
+          <h3 className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-600 dark:text-gray-400`}>UTILIDAD BRUTA</h3>
+          <p className={`${isMobile ? 'text-xl' : 'text-lg'} font-bold text-gray-800 dark:text-gray-100`}>{formatMoney(summaryData.utilidadBruta, true)}</p>
         </Card>
-        <Card className="p-3 bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700">
-          <h3 className="text-xs text-gray-600 dark:text-gray-400">% UTILIDAD BRUTA</h3>
-          <p className="text-lg font-bold text-gray-800 dark:text-gray-100">{summaryData.porcentajeUtilidad.toFixed(2)}%</p>
+        <Card className={`${isMobile ? 'p-4' : 'p-3'} bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700`}>
+          <h3 className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-600 dark:text-gray-400`}>% UTILIDAD BRUTA</h3>
+          <p className={`${isMobile ? 'text-xl' : 'text-lg'} font-bold text-gray-800 dark:text-gray-100`}>{summaryData.porcentajeUtilidad.toFixed(2)}%</p>
         </Card>
-        <Card className="p-3 bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700">
-          <h3 className="text-xs text-gray-600 dark:text-gray-400">VOLUMEN TOTAL</h3>
-          <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{formatVolumen(getTotalCombinedVolume(getVisiblePlants()))} m³</p>
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        <Card className={`${isMobile ? 'p-4' : 'p-3'} bg-white dark:bg-gray-800 shadow-xs hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700`}>
+          <h3 className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-600 dark:text-gray-400`}>VOLUMEN TOTAL</h3>
+          <p className={`${isMobile ? 'text-base' : 'text-sm'} font-bold text-gray-800 dark:text-gray-100`}>{formatVolumen(getTotalCombinedVolume(getVisiblePlants()))} m³</p>
+          <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-500 dark:text-gray-400 mt-1`}>
             <div>Concreto: {formatVolumen(getTotalVolume("Ventas Concreto", getVisiblePlants()))} m³</div>
             <div>Bombeo: {formatVolumen(getTotalVolume("Ventas Bombeo", getVisiblePlants()))} m³</div>
           </div>
@@ -796,19 +809,19 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
       </div>
 
       {/* Data Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-x-auto w-full border border-gray-200 dark:border-gray-700">
-        <table className="w-full min-w-[1400px] lg:min-w-0 border-collapse text-xs">
+      <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm ${isMobile ? 'overflow-x-auto' : 'overflow-x-auto'} w-full border border-gray-200 dark:border-gray-700`}>
+        <table className={`w-full ${isMobile ? 'min-w-[800px]' : 'min-w-[1400px] lg:min-w-0'} border-collapse ${isMobile ? 'text-xs' : 'text-xs'}`}>
           <thead>
             <tr className="bg-green-800 text-white sticky top-0 z-10">
-              <th className="px-3 py-2 text-left border-b border-gray-200 dark:border-gray-600 sticky left-0 bg-green-800 z-20">
+              <th className={`${isMobile ? 'px-2 py-3' : 'px-3 py-2'} text-left border-b border-gray-200 dark:border-gray-600 sticky left-0 bg-green-800 z-20`}>
                 Hierarquía
               </th>
               {getVisiblePlants().map((planta) => (
-                <th key={planta} className="px-3 py-2 text-right border-b border-gray-200 dark:border-gray-600 whitespace-nowrap">
+                <th key={planta} className={`${isMobile ? 'px-2 py-3' : 'px-3 py-2'} text-right border-b border-gray-200 dark:border-gray-600 whitespace-nowrap`}>
                   {planta}
                 </th>
               ))}
-              <th className="px-3 py-2 text-right border-b border-gray-200 dark:border-gray-600 whitespace-nowrap">
+              <th className={`${isMobile ? 'px-2 py-3' : 'px-3 py-2'} text-right border-b border-gray-200 dark:border-gray-600 whitespace-nowrap`}>
                 Total
               </th>
             </tr>
@@ -821,18 +834,18 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
               return (
                 <React.Fragment key={tipoKey}>
                   <tr className="bg-green-800 text-white hover:bg-green-900">
-                    <td className="px-3 py-1.5 font-semibold flex items-center sticky left-0 bg-green-800 z-10 whitespace-nowrap">
+                    <td className={`${isMobile ? 'px-2 py-2' : 'px-3 py-1.5'} font-semibold flex items-center sticky left-0 bg-green-800 z-10 whitespace-nowrap`}>
                       <button onClick={() => toggleExpand(tipoKey)} className="mr-1 text-white hover:bg-green-700 p-0.5 rounded">
-                        {isTipoExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        {isTipoExpanded ? <ChevronDown size={isMobile ? 16 : 14} /> : <ChevronRight size={isMobile ? 16 : 14} />}
                       </button>
                       {tipo}
                     </td>
                     {getVisiblePlants().map((planta) => (
-                      <td key={planta} className="px-3 py-1.5 text-right border-r border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium">
+                      <td key={planta} className={`${isMobile ? 'px-2 py-2' : 'px-3 py-1.5'} text-right border-r border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium`}>
                         {formatMoney((tipoData as any).plantas[planta] ?? 0)}
                       </td>
                     ))}
-                    <td className="px-3 py-1.5 text-right bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium">
+                    <td className={`${isMobile ? 'px-2 py-2' : 'px-3 py-1.5'} text-right bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium`}>
                       {formatMoney((tipoData as any).total)}
                     </td>
                   </tr>
@@ -843,18 +856,18 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                     return (
                       <React.Fragment key={subCatKey}>
                         <tr className="bg-green-700 text-white hover:bg-green-800">
-                          <td className="px-3 py-1.5 pl-6 flex items-center sticky left-0 bg-green-700 z-10 whitespace-nowrap">
+                          <td className={`${isMobile ? 'px-2 py-2 pl-4' : 'px-3 py-1.5 pl-6'} flex items-center sticky left-0 bg-green-700 z-10 whitespace-nowrap`}>
                             <button onClick={() => toggleExpand(subCatKey)} className="mr-1 text-white hover:bg-green-600 p-0.5 rounded">
-                              {isSubCatExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              {isSubCatExpanded ? <ChevronDown size={isMobile ? 16 : 14} /> : <ChevronRight size={isMobile ? 16 : 14} />}
                             </button>
                             {subCategoria}
                           </td>
                           {getVisiblePlants().map((planta) => (
-                            <td key={planta} className="px-3 py-1.5 text-right border-r border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                            <td key={planta} className={`${isMobile ? 'px-2 py-2' : 'px-3 py-1.5'} text-right border-r border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300`}>
                               {formatMoney((subCategoriaData as any).plantas[planta] ?? 0)}
                             </td>
                           ))}
-                          <td className="px-3 py-1.5 text-right bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                          <td className={`${isMobile ? 'px-2 py-2' : 'px-3 py-1.5'} text-right bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300`}>
                             {formatMoney((subCategoriaData as any).total)}
                           </td>
                         </tr>
@@ -865,9 +878,9 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                           return (
                             <React.Fragment key={clasifKey}>
                               <tr className={`bg-green-600 text-white hover:bg-green-700 ${clasificacion === "Costo Operativo" ? "outline-solid outline-2 outline-blue-500" : ""}`}>
-                                <td className={`px-3 py-1.5 pl-10 flex items-center sticky left-0 z-10 whitespace-nowrap ${clasificacion === "Costo Operativo" ? "bg-blue-600" : "bg-green-600"}`}>
+                                <td className={`${isMobile ? 'px-2 py-2 pl-6' : 'px-3 py-1.5 pl-10'} flex items-center sticky left-0 z-10 whitespace-nowrap ${clasificacion === "Costo Operativo" ? "bg-blue-600" : "bg-green-600"}`}>
                                   <button onClick={() => toggleExpand(clasifKey)} className="mr-1 text-white hover:bg-green-500 p-0.5 rounded">
-                                    {isClasifExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                    {isClasifExpanded ? <ChevronDown size={isMobile ? 16 : 14} /> : <ChevronRight size={isMobile ? 16 : 14} />}
                                   </button>
                                   {clasificacion}
                                 </td>
@@ -875,7 +888,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                                   const montoPlanta = (clasificacionData as any).plantas[planta] ?? 0
                                   
                                   return (
-                                    <td key={planta} className="px-3 py-1.5 text-right border-r border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                                    <td key={planta} className={`${isMobile ? 'px-2 py-2' : 'px-3 py-1.5'} text-right border-r border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400`}>
                                       {showUnitPriceView && tipo === "Egresos" ? (
                                         <div className="space-y-0.5">
                                           {(() => {
@@ -888,7 +901,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                                               return (
                                                 <>
                                                   {formatUnitValue(unitCostWithRef, true)}
-                                                  <div className="text-xxs text-gray-500 dark:text-gray-500">
+                                                  <div className={`${isMobile ? 'text-xs' : 'text-xxs'} text-gray-500 dark:text-gray-500`}>
                                                     {shouldUseCombinedVolume(clasificacion)
                                                       ? "por m³ (concreto + bombeo)"
                                                       : "por m³ de concreto"}
@@ -906,7 +919,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                                     </td>
                                   )
                                 })}
-                                <td className="px-3 py-1.5 text-right bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                                <td className={`${isMobile ? 'px-2 py-2' : 'px-3 py-1.5'} text-right bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400`}>
                                   {showUnitPriceView && tipo === "Egresos" ? (
                                     <div className="space-y-0.5">
                                       {(() => {
@@ -921,13 +934,13 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                                           return (
                                             <>
                                               {formatUnitValue(unitCost, true)}
-                                              <div className="text-xxs text-gray-500 dark:text-gray-500">
+                                              <div className={`${isMobile ? 'text-xs' : 'text-xxs'} text-gray-500 dark:text-gray-500`}>
                                                 {shouldUseCombinedVolume(clasificacion)
                                                   ? "por m³ (concreto + bombeo)"
                                                   : "por m³ de concreto"}
                                               </div>
                                               {shouldUseCombinedVolume(clasificacion) && (
-                                                <div className="text-xxs text-gray-500 dark:text-gray-500">
+                                                <div className={`${isMobile ? 'text-xs' : 'text-xxs'} text-gray-500 dark:text-gray-500`}>
                                                   {formatVolumen(refVolume)} m³ Total
                                                 </div>
                                               )}
@@ -947,25 +960,25 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                                 const cat1Key = `${clasifKey}-${categoria1}`
                                 const showVolInput = shouldShowVolumeDisplay(tipo, subCategoria, clasificacion, categoria1)
                                 
-                                                                  return (
+                                return (
                                     <tr key={cat1Key} className="bg-green-100 dark:bg-green-900/20 hover:bg-green-200 dark:hover:bg-green-900/30">
-                                      <td className="px-3 py-1.5 pl-14 sticky left-0 bg-green-100 dark:bg-green-900/20 z-10 text-gray-700 dark:text-gray-200 whitespace-nowrap">{categoria1}</td>
+                                      <td className={`${isMobile ? 'px-2 py-2 pl-8' : 'px-3 py-1.5 pl-14'} sticky left-0 bg-green-100 dark:bg-green-900/20 z-10 text-gray-700 dark:text-gray-200 whitespace-nowrap`}>{categoria1}</td>
                                       {getVisiblePlants().map((planta) => {
                                         const montoPlanta = (categoria1Data as any).plantas[planta] ?? 0
                                         const volumenPlanta = showVolInput ? volumenes[categoria1]?.[planta] ?? 0 : 0
                                         const unitValue = calculateUnitValue(montoPlanta, volumenPlanta)
 
                                         return (
-                                          <td key={planta} className="px-3 py-1.5 text-right border-r border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 align-top">
+                                          <td key={planta} className={`${isMobile ? 'px-2 py-2' : 'px-3 py-1.5'} text-right border-r border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 align-top`}>
                                             {showVolInput ? (
                                               <div className="space-y-0.5">
                                                 <div className="font-medium">{formatMoney(montoPlanta)}</div>
                                                 {volumenPlanta > 0 && (
                                                   <>
-                                                    <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                                    <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-blue-600 dark:text-blue-400 font-medium`}>
                                                       {formatVolumen(volumenPlanta)} m³
                                                     </div>
-                                                    <div className="text-xxs text-gray-500 dark:text-gray-400">
+                                                    <div className={`${isMobile ? 'text-xs' : 'text-xxs'} text-gray-500 dark:text-gray-400`}>
                                                       {formatUnitValue(unitValue)}
                                                     </div>
                                                   </>
@@ -977,7 +990,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                                           </td>
                                         )
                                       })}
-                                      <td className="px-3 py-1.5 text-right bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 align-top">
+                                      <td className={`${isMobile ? 'px-2 py-2' : 'px-3 py-1.5'} text-right bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 align-top`}>
                                         {showVolInput ? (
                                           <div className="space-y-0.5">
                                             <div className="font-medium">{formatMoney((categoria1Data as any).total)}</div>
@@ -991,10 +1004,10 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                                                 const totalMonto = (categoria1Data as any).total
                                                 return (
                                                   <>
-                                                    <div className="text-xxs text-gray-500 dark:text-gray-400">
+                                                    <div className={`${isMobile ? 'text-xs' : 'text-xxs'} text-gray-500 dark:text-gray-400`}>
                                                       {formatVolumen(totalVolumenVisible)} m³ Total
                                                     </div>
-                                                    <div className="text-xxs text-gray-500 dark:text-gray-400">
+                                                    <div className={`${isMobile ? 'text-xs' : 'text-xxs'} text-gray-500 dark:text-gray-400`}>
                                                       {formatUnitValue(calculateUnitValue(totalMonto, totalVolumenVisible))}
                                                     </div>
                                                   </>
@@ -1022,19 +1035,19 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
 
             {/* Total general Row */}
             <tr className="bg-green-800 text-white font-bold sticky bottom-0 z-20">
-              <td className="px-3 py-2 sticky left-0 bg-green-800 z-10">Total General</td>
+              <td className={`${isMobile ? 'px-2 py-3' : 'px-3 py-2'} sticky left-0 bg-green-800 z-10`}>Total General</td>
               {getVisiblePlants().map((planta) => {
                 const totalPlanta = Object.values(matrixData).reduce(
                   (sum, tipoData) => sum + ((tipoData as any).plantas?.[planta] ?? 0),
                   0
                 )
                 return (
-                  <td key={planta} className="px-3 py-2 text-right border-r border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 font-bold">
+                  <td key={planta} className={`${isMobile ? 'px-2 py-3' : 'px-3 py-2'} text-right border-r border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 font-bold`}>
                     {formatMoney(totalPlanta)}
                   </td>
                 )
               })}
-              <td className="px-3 py-2 text-right bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 font-bold">
+              <td className={`${isMobile ? 'px-2 py-3' : 'px-3 py-2'} text-right bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 font-bold`}>
                 {formatMoney(Object.values(matrixData).reduce((sum, tipoData) => sum + (tipoData as any).total, 0))}
               </td>
             </tr>
@@ -1044,9 +1057,9 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
 
       {/* Legend for Unit Price View */}
       {showUnitPriceView && (
-        <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Información de Precios Unitarios</h3>
-          <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
+        <div className={`mt-4 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700`}>
+          <h3 className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-gray-700 dark:text-gray-200 mb-2`}>Información de Precios Unitarios</h3>
+          <ul className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-600 dark:text-gray-300 space-y-1.5`}>
             <li className="flex items-start">
               <span className="mr-2">•</span>
               <span>Los precios unitarios para <span className="font-medium text-green-700 dark:text-green-400">Ingresos</span> se calculan usando los volúmenes configurados en el modal.</span>
