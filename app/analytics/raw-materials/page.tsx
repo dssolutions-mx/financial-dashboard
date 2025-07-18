@@ -144,9 +144,13 @@ export default function RawMaterialsPage() {
         allCashData.push(...cashData)
       }
 
-      // Calculate total volume
-      const totalVolume = allVolumeData.reduce((sum, vol) => sum + vol.volume_m3, 0) +
-                         allCashData.reduce((sum, sale) => sum + sale.volume_m3, 0)
+      // Calculate total volume (excluding pumped volume since it doesn't consume materials)
+      const totalVolume = allVolumeData
+        .filter(vol => vol.category !== "Ventas Bombeo")
+        .reduce((sum, vol) => sum + vol.volume_m3, 0) +
+        allCashData
+        .filter(sale => sale.category !== "Ventas Bombeo Cash")
+        .reduce((sum, sale) => sum + sale.volume_m3, 0)
 
       // Calculate material analysis
       await calculateMaterialAnalysis(allData, totalVolume, allVolumeData, allCashData)
@@ -352,16 +356,20 @@ export default function RawMaterialsPage() {
   const calculatePlantMaterialComparison = (data: any[], allVolumeData: any[], allCashData: any[]): PlantMaterialComparison[] => {
     const plantas = [...new Set(data.map((row: any) => row.planta).filter(Boolean))]
     
-    // Calculate volume per plant (combining fiscal and cash)
+    // Calculate volume per plant (combining fiscal and cash, excluding pumped volume)
     const volumeByPlant = new Map<string, number>()
-    allVolumeData.forEach(vol => {
-      const currentVol = volumeByPlant.get(vol.plant_code) || 0
-      volumeByPlant.set(vol.plant_code, currentVol + vol.volume_m3)
-    })
-    allCashData.forEach(cash => {
-      const currentVol = volumeByPlant.get(cash.plant_code) || 0
-      volumeByPlant.set(cash.plant_code, currentVol + cash.volume_m3)
-    })
+    allVolumeData
+      .filter(vol => vol.category !== "Ventas Bombeo")
+      .forEach(vol => {
+        const currentVol = volumeByPlant.get(vol.plant_code) || 0
+        volumeByPlant.set(vol.plant_code, currentVol + vol.volume_m3)
+      })
+    allCashData
+      .filter(cash => cash.category !== "Ventas Bombeo Cash")
+      .forEach(cash => {
+        const currentVol = volumeByPlant.get(cash.plant_code) || 0
+        volumeByPlant.set(cash.plant_code, currentVol + cash.volume_m3)
+      })
 
     const results = plantas.map(planta => {
       const plantData = data.filter((row: any) => 
