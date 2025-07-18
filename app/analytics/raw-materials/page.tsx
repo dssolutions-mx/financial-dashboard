@@ -144,9 +144,13 @@ export default function RawMaterialsPage() {
         allCashData.push(...cashData)
       }
 
-      // Calculate total volume
-      const totalVolume = allVolumeData.reduce((sum, vol) => sum + vol.volume_m3, 0) +
-                         allCashData.reduce((sum, sale) => sum + sale.volume_m3, 0)
+      // Calculate total volume (excluding pumped volume since it doesn't consume materials)
+      const totalVolume = allVolumeData
+        .filter(vol => vol.category !== "Ventas Bombeo")
+        .reduce((sum, vol) => sum + vol.volume_m3, 0) +
+        allCashData
+        .filter(sale => sale.category !== "Ventas Bombeo Cash")
+        .reduce((sum, sale) => sum + sale.volume_m3, 0)
 
       // Calculate material analysis
       await calculateMaterialAnalysis(allData, totalVolume, allVolumeData, allCashData)
@@ -276,7 +280,7 @@ export default function RawMaterialsPage() {
       },
       {
         title: "Costo por m³",
-        value: formatCurrency(avgCostPerM3),
+        value: `$${formatNumberWithDecimals(avgCostPerM3)}`,
         change: "0.0%",
         trend: "neutral",
         description: `Costo promedio de materiales por metro cúbico`,
@@ -287,7 +291,7 @@ export default function RawMaterialsPage() {
         value: topMaterial?.material || "N/A",
         change: topMaterial ? `${topMaterial.percentage.toFixed(1)}%` : "0%",
         trend: "neutral",
-        description: `${formatCompactCurrency(topMaterial?.costPerM3 || 0)}/m³`,
+        description: `$${formatNumberWithDecimals(topMaterial?.costPerM3 || 0)}/m³`,
         icon: Building2
       },
       {
@@ -352,16 +356,20 @@ export default function RawMaterialsPage() {
   const calculatePlantMaterialComparison = (data: any[], allVolumeData: any[], allCashData: any[]): PlantMaterialComparison[] => {
     const plantas = [...new Set(data.map((row: any) => row.planta).filter(Boolean))]
     
-    // Calculate volume per plant (combining fiscal and cash)
+    // Calculate volume per plant (combining fiscal and cash, excluding pumped volume)
     const volumeByPlant = new Map<string, number>()
-    allVolumeData.forEach(vol => {
-      const currentVol = volumeByPlant.get(vol.plant_code) || 0
-      volumeByPlant.set(vol.plant_code, currentVol + vol.volume_m3)
-    })
-    allCashData.forEach(cash => {
-      const currentVol = volumeByPlant.get(cash.plant_code) || 0
-      volumeByPlant.set(cash.plant_code, currentVol + cash.volume_m3)
-    })
+    allVolumeData
+      .filter(vol => vol.category !== "Ventas Bombeo")
+      .forEach(vol => {
+        const currentVol = volumeByPlant.get(vol.plant_code) || 0
+        volumeByPlant.set(vol.plant_code, currentVol + vol.volume_m3)
+      })
+    allCashData
+      .filter(cash => cash.category !== "Ventas Bombeo Cash")
+      .forEach(cash => {
+        const currentVol = volumeByPlant.get(cash.plant_code) || 0
+        volumeByPlant.set(cash.plant_code, currentVol + cash.volume_m3)
+      })
 
     const results = plantas.map(planta => {
       const plantData = data.filter((row: any) => 
@@ -439,6 +447,13 @@ export default function RawMaterialsPage() {
       return `$${(amount / 1000).toFixed(0)}K`
     }
     return formatCurrency(amount)
+  }
+
+  const formatNumberWithDecimals = (value: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value)
   }
 
   const getTrendIcon = (trend: "up" | "down" | "neutral") => {
@@ -614,7 +629,7 @@ export default function RawMaterialsPage() {
                                               <div>
                         <h4 className="font-medium">{material.material}</h4>
                         <p className="text-sm text-muted-foreground">
-                          {formatCompactCurrency(material.costPerM3)}/m³ • {material.count} movimientos
+                          ${formatNumberWithDecimals(material.costPerM3)}/m³ • {material.count} movimientos
                         </p>
                       </div>
                     </div>
@@ -774,14 +789,14 @@ export default function RawMaterialsPage() {
                         <div>
                           <h4 className="font-medium">{plant.planta}</h4>
                           <p className="text-sm text-muted-foreground">
-                            {plant.businessUnit} • {plant.totalVolume.toFixed(0)} m³
+                            {plant.businessUnit} • {formatNumberWithDecimals(plant.totalVolume)} m³
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold">{formatCompactCurrency(plant.totalCost)}</p>
                         <p className="text-sm text-muted-foreground">
-                          {formatCompactCurrency(plant.costPerM3)}/m³
+                          ${formatNumberWithDecimals(plant.costPerM3)}/m³
                         </p>
                         <p className={`text-xs font-medium ${plant.efficiency > 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {plant.efficiency > 0 ? '+' : ''}{plant.efficiency.toFixed(1)}% eficiencia
