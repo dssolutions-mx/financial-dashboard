@@ -280,7 +280,7 @@ export default function RawMaterialsPage() {
       },
       {
         title: "Costo por m³",
-        value: formatCurrency(avgCostPerM3),
+        value: `$${formatNumberWithDecimals(avgCostPerM3)}`,
         change: "0.0%",
         trend: "neutral",
         description: `Costo promedio de materiales por metro cúbico`,
@@ -291,7 +291,7 @@ export default function RawMaterialsPage() {
         value: topMaterial?.material || "N/A",
         change: topMaterial ? `${topMaterial.percentage.toFixed(1)}%` : "0%",
         trend: "neutral",
-        description: `${formatCompactCurrency(topMaterial?.costPerM3 || 0)}/m³`,
+        description: `$${formatNumberWithDecimals(topMaterial?.costPerM3 || 0)}/m³`,
         icon: Building2
       },
       {
@@ -447,6 +447,13 @@ export default function RawMaterialsPage() {
       return `$${(amount / 1000).toFixed(0)}K`
     }
     return formatCurrency(amount)
+  }
+
+  const formatNumberWithDecimals = (value: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value)
   }
 
   const getTrendIcon = (trend: "up" | "down" | "neutral") => {
@@ -622,7 +629,7 @@ export default function RawMaterialsPage() {
                                               <div>
                         <h4 className="font-medium">{material.material}</h4>
                         <p className="text-sm text-muted-foreground">
-                          {formatCompactCurrency(material.costPerM3)}/m³ • {material.count} movimientos
+                          ${formatNumberWithDecimals(material.costPerM3)}/m³ • {material.count} movimientos
                         </p>
                       </div>
                     </div>
@@ -782,14 +789,14 @@ export default function RawMaterialsPage() {
                         <div>
                           <h4 className="font-medium">{plant.planta}</h4>
                           <p className="text-sm text-muted-foreground">
-                            {plant.businessUnit} • {plant.totalVolume.toFixed(0)} m³
+                            {plant.businessUnit} • {formatNumberWithDecimals(plant.totalVolume)} m³
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold">{formatCompactCurrency(plant.totalCost)}</p>
                         <p className="text-sm text-muted-foreground">
-                          {formatCompactCurrency(plant.costPerM3)}/m³
+                          ${formatNumberWithDecimals(plant.costPerM3)}/m³
                         </p>
                         <p className={`text-xs font-medium ${plant.efficiency > 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {plant.efficiency > 0 ? '+' : ''}{plant.efficiency.toFixed(1)}% eficiencia
