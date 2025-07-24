@@ -216,6 +216,9 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
      const subCategoria = row["Sub categoria"] || "Sin Subcategoría"
      const clasificacion = row.Clasificacion || "Sin Clasificación"
      const categoria1 = row["Categoria 1"] || "Sin Categoría"
+     const codigo = row.Codigo || "Sin Código"
+     const concepto = row.Concepto || "Sin Concepto"
+     const cuentaKey = `${codigo} - ${concepto}`
      const planta = row.Planta
      const monto = tipo === "Egresos" ? -Math.abs(row.Monto) : row.Monto
      const validPlanta = ALL_PLANTS.includes(planta) ? planta : "SIN CLASIFICACION"
@@ -244,10 +247,20 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
       if (!hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1]) {
         hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1] = {
           total: 0,
+          cuentas: {},
+          plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
+        }
+      }
+      if (!hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey]) {
+        hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey] = {
+          total: 0,
+          codigo,
+          concepto,
           plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
         }
       }
 
+       // Update all levels with the amounts
        hierarchy[tipo].total += monto
        if (hierarchy[tipo].plantas[validPlanta] !== undefined) {
          hierarchy[tipo].plantas[validPlanta] += monto
@@ -267,6 +280,12 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
         if (hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].plantas[validPlanta] !== undefined) {
           hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].plantas[validPlanta] += monto
         }
+
+       // Update the new cuenta level
+       hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey].total += monto
+       if (hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey].plantas[validPlanta] !== undefined) {
+         hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey].plantas[validPlanta] += monto
+       }
      })
 
      // Add cash sales data to hierarchy as additional income rows
@@ -308,6 +327,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
          if (!hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1]) {
            hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1] = {
              total: 0,
+             cuentas: {},
              plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
            }
          }
@@ -316,6 +336,17 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
          Object.entries(plants).forEach(([plant, data]) => {
            if (data.amount > 0 && visiblePlants.includes(plant)) {
              const monto = data.amount
+             const cuentaKey = `CASH-${plant} - Ventas en Efectivo ${plant}`
+             
+             // Initialize cuenta for cash sales if it doesn't exist
+             if (!hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey]) {
+               hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey] = {
+                 total: 0,
+                 codigo: `CASH-${plant}`,
+                 concepto: `Ventas en Efectivo ${plant}`,
+                 plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
+               }
+             }
              
              // Update all levels
              hierarchy["Ingresos"].total += monto
@@ -329,6 +360,10 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
 
              hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].total += monto
              hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].plantas[plant] += monto
+
+             // Update cuenta level for cash sales
+             hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey].total += monto
+             hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey].plantas[plant] += monto
            }
          })
        })
@@ -1105,11 +1140,18 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
 
                               {isClasifExpanded && Object.entries((clasificacionData as any).categorias1).map(([categoria1, categoria1Data]) => {
                                 const cat1Key = `${clasifKey}-${categoria1}`
+                                const isCat1Expanded = expandedRows.has(cat1Key)
                                 const showVolInput = shouldShowVolumeDisplay(tipo, subCategoria, clasificacion, categoria1)
                                 
-                                                                  return (
-                                    <tr key={cat1Key} className="bg-green-100 dark:bg-green-900/20 hover:bg-green-200 dark:hover:bg-green-900/30">
-                                      <td className="px-3 py-1.5 pl-14 sticky left-0 bg-green-100 dark:bg-green-900/20 z-10 text-gray-700 dark:text-gray-200 whitespace-nowrap">{categoria1}</td>
+                                return (
+                                  <React.Fragment key={cat1Key}>
+                                    <tr className="bg-green-100 dark:bg-green-900/20 hover:bg-green-200 dark:hover:bg-green-900/30">
+                                      <td className="px-3 py-1.5 pl-14 sticky left-0 bg-green-100 dark:bg-green-900/20 z-10 text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                                        <button onClick={() => toggleExpand(cat1Key)} className="mr-1 text-gray-700 dark:text-gray-200 hover:bg-green-300 dark:hover:bg-green-800 p-0.5 rounded">
+                                          {isCat1Expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                        </button>
+                                        {categoria1}
+                                      </td>
                                       {getVisiblePlants().map((planta) => {
                                         const montoPlanta = (categoria1Data as any).plantas[planta] ?? 0
                                         const volumenPlanta = showVolInput ? volumenes[categoria1]?.[planta] ?? 0 : 0
@@ -1168,7 +1210,31 @@ export function FinancialDashboardMain({ initialData, onDataUpdate }: FinancialD
                                         )}
                                       </td>
                                     </tr>
-                                  )
+
+                                    {/* Account details level */}
+                                    {isCat1Expanded && (categoria1Data as any).cuentas && Object.entries((categoria1Data as any).cuentas).map(([cuentaKey, cuentaData]) => (
+                                      <tr key={`${cat1Key}-${cuentaKey}`} className="bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800/70">
+                                        <td className="px-3 py-1.5 pl-18 sticky left-0 bg-gray-50 dark:bg-gray-800/50 z-10 text-gray-600 dark:text-gray-300 text-xs">
+                                          <div className="space-y-0.5">
+                                            <div className="font-medium text-blue-700 dark:text-blue-300">{(cuentaData as any).codigo}</div>
+                                            <div className="text-gray-600 dark:text-gray-400 leading-tight">{(cuentaData as any).concepto}</div>
+                                          </div>
+                                        </td>
+                                        {getVisiblePlants().map((planta) => {
+                                          const montoCuenta = (cuentaData as any).plantas[planta] ?? 0
+                                          return (
+                                            <td key={planta} className="px-3 py-1.5 text-right border-r border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs">
+                                              {formatMoney(montoCuenta)}
+                                            </td>
+                                          )
+                                        })}
+                                        <td className="px-3 py-1.5 text-right bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs">
+                                          {formatMoney((cuentaData as any).total)}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </React.Fragment>
+                                )
                               })}
                             </React.Fragment>
                           )
