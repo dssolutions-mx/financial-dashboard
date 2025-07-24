@@ -145,9 +145,9 @@ export default function KPIsPage() {
         allData.push({ report, data: reportData })
       }
 
-      // Try to find a period with volume data in the selected reports
-      let volumeData: any[] = []
-      let cashSalesData: any[] = []
+      // Load and aggregate volume data from ALL selected reports (same as financial data)
+      let allVolumeData: any[] = []
+      let allCashSalesData: any[] = []
       let foundVolumeData = false
 
       for (const report of reportsToAnalyze) {
@@ -157,15 +157,36 @@ export default function KPIsPage() {
         ])
         
         if (volData.length > 0 || cashData.length > 0) {
-          volumeData = volData
-          cashSalesData = cashData
+          allVolumeData.push(...volData)
+          allCashSalesData.push(...cashData)
           foundVolumeData = true
-          break
         }
       }
 
-      setVolumeData(volumeData)
-      setCashSalesData(cashSalesData)
+      // Aggregate volume data by category and plant (similar to financial data aggregation)
+      const aggregatedVolumeData = aggregateVolumeData(allVolumeData)
+      const aggregatedCashSalesData = aggregateCashSalesData(allCashSalesData)
+
+      // Debug logging to verify volume aggregation
+      console.log(`KPIs: Analyzing ${reportsToAnalyze.length} months of data`)
+      console.log(`KPIs: Raw volume data points: ${allVolumeData.length}`)
+      console.log(`KPIs: Aggregated volume data points: ${aggregatedVolumeData.length}`)
+      
+      // Calculate total volumes for verification
+      const totalConcretoFromAggregated = aggregatedVolumeData
+        .filter(vol => vol.category === "Ventas Concreto")
+        .reduce((sum, vol) => sum + vol.volume_m3, 0)
+      const totalAlternativosFromAggregated = aggregatedVolumeData
+        .filter(vol => vol.category === "Productos Alternativos")
+        .reduce((sum, vol) => sum + vol.volume_m3, 0)
+      const totalMaterialConsumingFromAggregated = totalConcretoFromAggregated + totalAlternativosFromAggregated
+      
+      console.log(`KPIs: Total aggregated concrete volume: ${totalConcretoFromAggregated.toFixed(2)} m³`)
+      console.log(`KPIs: Total aggregated alternatives volume: ${totalAlternativosFromAggregated.toFixed(2)} m³`)
+      console.log(`KPIs: Total material-consuming volume: ${totalMaterialConsumingFromAggregated.toFixed(2)} m³`)
+
+      setVolumeData(aggregatedVolumeData)
+      setCashSalesData(aggregatedCashSalesData)
       setHasVolumeData(foundVolumeData)
 
       // Aggregate data from all selected reports
@@ -174,7 +195,7 @@ export default function KPIsPage() {
       // Calculate KPIs from aggregated data with volume integration
       const latestReportData = allData[0]
       const currentViewMode = foundVolumeData ? viewMode : "participation"
-      const metrics = calculateKPIMetrics(aggregatedData, latestReportData.report, allData, volumeData, cashSalesData, currentViewMode, targets)
+      const metrics = calculateKPIMetrics(aggregatedData, latestReportData.report, allData, aggregatedVolumeData, aggregatedCashSalesData, currentViewMode, targets)
       setKpiMetrics(metrics)
 
       // Calculate plant performance using aggregated data
@@ -219,6 +240,51 @@ export default function KPIsPage() {
           }
         }
       })
+    })
+    
+    return Object.values(aggregated)
+  }
+
+  // CRITICAL FIX: Volume data must be aggregated from ALL periods, not just first period found
+  // Previous bug: Financial data was aggregated from multiple months, but volume data was only
+  // taken from the first month that had data, causing inflated unit costs.
+  // Fix: Aggregate volume data the same way as financial data across all selected periods.
+  const aggregateVolumeData = (allVolumeData: any[]) => {
+    const aggregated: Record<string, any> = {}
+    
+    allVolumeData.forEach((vol: any) => {
+      const key = `${vol.plant_code}-${vol.category}`
+      
+      if (aggregated[key]) {
+        aggregated[key].volume_m3 += (vol.volume_m3 || 0)
+      } else {
+        aggregated[key] = {
+          ...vol,
+          volume_m3: vol.volume_m3 || 0
+        }
+      }
+    })
+    
+    return Object.values(aggregated)
+  }
+
+  // Function to aggregate cash sales data from multiple periods
+  const aggregateCashSalesData = (allCashSalesData: any[]) => {
+    const aggregated: Record<string, any> = {}
+    
+    allCashSalesData.forEach((sale: any) => {
+      const key = `${sale.plant_code}-${sale.category}`
+      
+      if (aggregated[key]) {
+        aggregated[key].volume_m3 += (sale.volume_m3 || 0)
+        aggregated[key].amount_mxn += (sale.amount_mxn || 0)
+      } else {
+        aggregated[key] = {
+          ...sale,
+          volume_m3: sale.volume_m3 || 0,
+          amount_mxn: sale.amount_mxn || 0
+        }
+      }
     })
     
     return Object.values(aggregated)
@@ -350,13 +416,17 @@ export default function KPIsPage() {
       .filter(row => row.tipo === "Egresos")
       .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
 
-    // Calculate total volume from both sources
+    // Calculate total volume from both sources - following raw materials page logic
     const totalVolumeConcreto = volumeData
       .filter(vol => vol.category === "Ventas Concreto")
       .reduce((sum, vol) => sum + vol.volume_m3, 0)
     
     const totalVolumeBombeo = volumeData
       .filter(vol => vol.category === "Ventas Bombeo")
+      .reduce((sum, vol) => sum + vol.volume_m3, 0)
+
+    const totalVolumeProductosAlternativos = volumeData
+      .filter(vol => vol.category === "Productos Alternativos")
       .reduce((sum, vol) => sum + vol.volume_m3, 0)
 
     const totalCashVolumeConcreto = cashSalesData
@@ -367,7 +437,14 @@ export default function KPIsPage() {
       .filter(sale => sale.category === "Ventas Bombeo Cash")
       .reduce((sum, sale) => sum + sale.volume_m3, 0)
 
-    const totalVolume = totalVolumeConcreto + totalVolumeBombeo + totalCashVolumeConcreto + totalCashVolumeBombeo
+    // CRITICAL FIX: Match raw materials page volume logic exactly for consistent unit costs
+    // Raw materials page uses: vol.category !== "Ventas Bombeo" (includes concrete + alternatives)
+    // This was the source of the $2,076 vs $2,062.47 discrepancy - missing "Productos Alternativos"
+    
+    // Material costs: Concrete + Alternative Products (both consume materials, excluding pumping)
+    const totalMaterialConsumingVolume = totalVolumeConcreto + totalVolumeProductosAlternativos + totalCashVolumeConcreto // No cash alternative products category yet
+    // Operational costs: All volumes combined (concrete + pumping + alternatives)
+    const totalVolume = totalVolumeConcreto + totalVolumeBombeo + totalVolumeProductosAlternativos + totalCashVolumeConcreto + totalCashVolumeBombeo
     
     // Calculate cash sales revenue
     const cashSalesRevenue = cashSalesData.reduce((sum, sale) => sum + sale.amount_mxn, 0)
@@ -394,8 +471,8 @@ export default function KPIsPage() {
 
     const costoPersonalFijo = data
       .filter(row => row.tipo === "Egresos" && 
-        (row.categoria_1?.includes("Nómina Producción") || 
-         row.categoria_1?.includes("Nómina Administrativos")))
+        (row.categoria_1 === "Nómina Producción" || 
+         row.categoria_1 === "Nómina Administrativos"))
       .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
 
     const costoMateriasPrimas = data
@@ -412,10 +489,17 @@ export default function KPIsPage() {
     const participacionMateriasPrimas = egresos > 0 ? (costoMateriasPrimas / egresos) * 100 : 0
     const participacionCemento = costoMateriasPrimas > 0 ? (costoCemento / costoMateriasPrimas) * 100 : 0
 
-    // Calculate unit costs (costo unitario)
-    const costoUnitarioTransporte = totalVolume > 0 ? costoTransporte / totalVolume : 0
-    const costoUnitarioMateriasPrimas = totalVolume > 0 ? costoMateriasPrimas / totalVolume : 0
+    // Calculate derived volumes for display and calculations
+    const totalConcretoVolume = totalVolumeConcreto + totalCashVolumeConcreto // For display purposes  
+    const totalBombeoVolume = totalVolumeBombeo + totalCashVolumeBombeo // For display purposes
+
+    // Calculate unit costs using appropriate volume denominators
+    // Materials and concrete transport should use material-consuming volume (concrete + alternatives, excluding pumping)
+    const costoUnitarioTransporte = totalMaterialConsumingVolume > 0 ? costoTransporte / totalMaterialConsumingVolume : 0
+    const costoUnitarioMateriasPrimas = totalMaterialConsumingVolume > 0 ? costoMateriasPrimas / totalMaterialConsumingVolume : 0
+    // Total operational costs use combined volume since all volumes have operational costs
     const costoUnitarioTotal = totalVolume > 0 ? egresos / totalVolume : 0
+    // Revenue efficiency uses total volume since all categories generate revenue
     const eficienciaVentas = totalVolume > 0 ? totalIngresos / totalVolume : 0
 
     // Return different metrics based on view mode
@@ -434,14 +518,14 @@ export default function KPIsPage() {
           target: kpiTargets.crecimientoObjetivo
         },
         {
-          id: "volumen_total",
-          title: "Volumen Total",
-          value: totalVolume.toFixed(1),
+          id: "volumen_materiales",
+          title: "Volumen de Materiales",
+          value: totalMaterialConsumingVolume.toFixed(1),
           unit: "m³",
-          change: "N/A",
+          change: `+${totalBombeoVolume.toFixed(1)} m³ bombeo`,
           trend: "neutral",
-          status: totalVolume > 0 ? "excellent" : "critical",
-          description: `Concreto + Bombeo (fiscal + efectivo)`,
+          status: totalMaterialConsumingVolume > 0 ? "excellent" : "critical",
+          description: `Concreto + alt. (base costos unitarios)`,
           icon: Activity
         },
         {
@@ -452,7 +536,7 @@ export default function KPIsPage() {
           change: "N/A",
           trend: "neutral",
           status: eficienciaVentas > 2000 ? "excellent" : eficienciaVentas > 1800 ? "good" : eficienciaVentas > 1600 ? "warning" : "critical",
-          description: `Ingresos por metro cúbico`,
+          description: `Ingresos por m³ (todas las categorías)`,
           icon: TrendingUp
         },
         {
@@ -463,7 +547,7 @@ export default function KPIsPage() {
           change: "N/A",
           trend: "neutral",
           status: costoUnitarioTotal < 1400 ? "excellent" : costoUnitarioTotal < 1600 ? "good" : costoUnitarioTotal < 1800 ? "warning" : "critical",
-          description: `Costo total por metro cúbico`,
+          description: `Costo total por m³ (todas las categorías)`,
           icon: DollarSign
         },
         {
@@ -486,7 +570,7 @@ export default function KPIsPage() {
           change: "N/A",
           trend: "neutral",
           status: costoUnitarioTransporte < 300 ? "excellent" : costoUnitarioTransporte < 400 ? "good" : costoUnitarioTransporte < 500 ? "warning" : "critical",
-          description: `Costo de transporte por metro cúbico`,
+          description: `Costo transporte por m³ (concreto + alt.)`,
           icon: Activity
         },
         {
@@ -497,7 +581,7 @@ export default function KPIsPage() {
           change: "N/A",
           trend: "neutral",
           status: costoUnitarioMateriasPrimas < 800 ? "excellent" : costoUnitarioMateriasPrimas < 900 ? "good" : costoUnitarioMateriasPrimas < 1000 ? "warning" : "critical",
-          description: `Costo de materias primas por metro cúbico`,
+          description: `Costo materias primas por m³ (concreto + alt.)`,
           icon: Factory
         },
         {
