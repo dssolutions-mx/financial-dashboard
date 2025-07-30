@@ -15,7 +15,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CheckCircle, XCircle, AlertTriangle, Upload, Eye } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CheckCircle, XCircle, AlertTriangle, Upload, Eye, Users, TrendingDown, TrendingUp } from "lucide-react"
 import { ValidationSummary, ReportMetadata } from "@/lib/services/validation-service"
 import { DebugDataRow } from "@/lib/services/excel-processor"
 
@@ -130,113 +131,341 @@ export default function ValidationModal({
             </CardContent>
           </Card>
 
-          {/* Totals Comparison */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Comparación de Totales</CardTitle>
-              <CardDescription>Comparación entre totales jerárquicos y clasificados</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Ingresos */}
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-green-700">Ingresos</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total Jerárquico (4100-0000-000-000):</span>
-                      <span className="font-mono">{formatCurrency(validationSummary.hierarchyTotals.ingresos)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Clasificado:</span>
-                      <span className="font-mono">{formatCurrency(validationSummary.classifiedTotals.ingresos)}</span>
-                    </div>
-                    <div className="flex justify-between border-t pt-2">
-                      <span>Variación:</span>
-                      <span className={`font-mono ${Math.abs(validationSummary.variance.ingresos) > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
-                        {formatCurrency(validationSummary.variance.ingresos)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Egresos */}
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-red-700">Egresos</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total Jerárquico (5000-0000-000-000):</span>
-                      <span className="font-mono">{formatCurrency(validationSummary.hierarchyTotals.egresos)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Clasificado:</span>
-                      <span className="font-mono">{formatCurrency(validationSummary.classifiedTotals.egresos)}</span>
-                    </div>
-                    <div className="flex justify-between border-t pt-2">
-                      <span>Variación:</span>
-                      <span className={`font-mono ${Math.abs(validationSummary.variance.egresos) > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
-                        {formatCurrency(validationSummary.variance.egresos)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Unclassified Items */}
-          {validationSummary.unclassifiedItems.length > 0 && (
-            <Card>
+          {/* Family Validation Results - Enhanced Section */}
+          {validationSummary.useFamilyValidation && validationSummary.familyValidation && (
+            <Card className="border-blue-200">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <span>Elementos Sin Clasificar</span>
-                  <Badge variant="destructive">{validationSummary.unclassifiedItems.length}</Badge>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  Análisis de Clasificación por Familias
                 </CardTitle>
                 <CardDescription>
-                  Elementos que no pudieron ser clasificados automáticamente
+                  Validación sofisticada familia por familia con detección de problemas avanzados
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Concepto</TableHead>
-                        <TableHead>Monto</TableHead>
-                        <TableHead>Problema</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {validationSummary.unclassifiedItems.slice(0, 5).map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-mono text-xs">{item.Codigo}</TableCell>
-                          <TableCell className="max-w-xs truncate" title={item.Concepto}>
-                            {item.Concepto}
-                          </TableCell>
-                          <TableCell className="font-mono text-right">
-                            {formatCurrency(item.Monto)}
-                          </TableCell>
-                          <TableCell>
-                            {item.Tipo === 'Indefinido' && <Badge variant="outline">Tipo indefinido</Badge>}
-                            {item['Categoria 1'] === 'Sin Categoría' && <Badge variant="outline">Sin categoría</Badge>}
-                            {item.Clasificacion === 'Sin Clasificación' && <Badge variant="outline">Sin clasificación</Badge>}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  
-                  {validationSummary.unclassifiedItems.length > 5 && (
-                    <div className="text-center">
-                      <Button variant="outline" onClick={onViewUnclassified}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        Ver todos los elementos ({validationSummary.unclassifiedItems.length})
-                      </Button>
+                {/* Family Summary Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {validationSummary.familyValidation.totalFamilies}
                     </div>
-                  )}
+                    <p className="text-sm text-blue-600">Familias Analizadas</p>
+                  </div>
+                  <div className="bg-orange-50 border border-orange-200 rounded p-4 text-center">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {validationSummary.familyValidation.familiesWithIssues}
+                    </div>
+                    <p className="text-sm text-orange-600">Con Problemas</p>
+                  </div>
+                  <div className="bg-red-50 border border-red-200 rounded p-4 text-center">
+                    <div className="text-2xl font-bold text-red-600">
+                      {validationSummary.familyValidation.criticalIssues}
+                    </div>
+                    <p className="text-sm text-red-600">Críticos</p>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded p-4 text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {formatCurrency(validationSummary.familyValidation.totalFinancialImpact)}
+                    </div>
+                    <p className="text-sm text-green-600">Impacto Total</p>
+                  </div>
                 </div>
+
+                {/* Recommendations */}
+                {validationSummary.familyValidation.recommendations.length > 0 && (
+                  <Alert className="mb-4">
+                    <TrendingUp className="h-4 w-4" />
+                    <AlertTitle>Recomendaciones del Sistema</AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-disc list-inside mt-2 space-y-1">
+                        {validationSummary.familyValidation.recommendations.map((rec, index) => (
+                          <li key={index} className="text-sm">{rec}</li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Issues by Type */}
+                {validationSummary.familyValidation.issues.length > 0 && (
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-gray-800">Problemas Detectados por Familia</h4>
+                    <div className="max-h-64 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Familia</TableHead>
+                            <TableHead>Tipo de Error</TableHead>
+                            <TableHead>Severidad</TableHead>
+                            <TableHead>Impacto</TableHead>
+                            <TableHead>% Faltante</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {validationSummary.familyValidation.issues
+                            .sort((a, b) => b.financial_impact - a.financial_impact)
+                            .slice(0, 10)
+                            .map((issue, index) => (
+                            <TableRow key={index}>
+                              <TableCell>
+                                <div>
+                                  <div className="font-mono text-xs">{issue.family_code}</div>
+                                  <div className="text-xs text-gray-500 truncate max-w-xs" title={issue.family_name}>
+                                    {issue.family_name}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={
+                                  issue.error_type === 'OVER_CLASSIFICATION' ? 'destructive' :
+                                  issue.error_type.includes('MIXED') ? 'secondary' : 'outline'
+                                }>
+                                  {issue.error_type === 'OVER_CLASSIFICATION' ? 'Sobre-clasificación' :
+                                   issue.error_type === 'MIXED_LEVEL4_SIBLINGS' ? 'Hermanos Mixtos' :
+                                   issue.error_type === 'MIXED_LEVEL3_SIBLINGS' ? 'Resumen Mixto' :
+                                   issue.error_type}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={
+                                  issue.severity === 'CRITICAL' ? 'destructive' :
+                                  issue.severity === 'HIGH' ? 'secondary' :
+                                  issue.severity === 'MEDIUM' ? 'outline' : 'default'
+                                }>
+                                  {issue.severity === 'CRITICAL' ? 'Crítico' :
+                                   issue.severity === 'HIGH' ? 'Alto' :
+                                   issue.severity === 'MEDIUM' ? 'Medio' : 'Bajo'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-mono text-xs">
+                                {formatCurrency(issue.financial_impact)}
+                              </TableCell>
+                              <TableCell>
+                                {issue.missing_percentage ? (
+                                  <div className="flex items-center gap-1">
+                                    {issue.missing_percentage > 50 ? (
+                                      <TrendingDown className="h-3 w-3 text-red-500" />
+                                    ) : (
+                                      <TrendingUp className="h-3 w-3 text-orange-500" />
+                                    )}
+                                    <span className="text-xs">
+                                      {issue.missing_percentage.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-gray-400">N/A</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    
+                    {validationSummary.familyValidation.issues.length > 10 && (
+                      <div className="text-center">
+                        <p className="text-xs text-gray-500">
+                          Mostrando 10 de {validationSummary.familyValidation.issues.length} problemas. 
+                          Use el análisis detallado para ver todos.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
+          )}
+
+          {/* Traditional Validation - Show as secondary tab when family validation is active */}
+          {validationSummary.useFamilyValidation ? (
+            <Tabs defaultValue="traditional" className="w-full">
+              <TabsList className="grid w-full grid-cols-1">
+                <TabsTrigger value="traditional">Validación Tradicional (Referencia)</TabsTrigger>
+              </TabsList>
+              <TabsContent value="traditional">
+                {/* Move traditional validation content here */}
+                <div className="space-y-6">
+                  {/* Totals Comparison */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Comparación de Totales</CardTitle>
+                      <CardDescription>Comparación entre totales jerárquicos y clasificados</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <h4 className="font-medium mb-3 text-green-600">Ingresos</h4>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span>Total Jerárquico (4100-0000-000-000):</span>
+                              <span className="font-mono">{formatCurrency(validationSummary.hierarchyTotals.ingresos)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Total Clasificado:</span>
+                              <span className="font-mono">{formatCurrency(validationSummary.classifiedTotals.ingresos)}</span>
+                            </div>
+                            <div className="flex justify-between border-t pt-2">
+                              <span>Variación:</span>
+                              <span className={`font-mono ${Math.abs(validationSummary.variance.ingresos) > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
+                                {formatCurrency(validationSummary.variance.ingresos)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="font-medium mb-3 text-red-600">Egresos</h4>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span>Total Jerárquico (5000-0000-000-000):</span>
+                              <span className="font-mono">{formatCurrency(validationSummary.hierarchyTotals.egresos)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Total Clasificado:</span>
+                              <span className="font-mono">{formatCurrency(validationSummary.classifiedTotals.egresos)}</span>
+                            </div>
+                            <div className="flex justify-between border-t pt-2">
+                              <span>Variación:</span>
+                              <span className={`font-mono ${Math.abs(validationSummary.variance.egresos) > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
+                                {formatCurrency(validationSummary.variance.egresos)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Unclassified Items */}
+                  {validationSummary.unclassifiedItems.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Elementos Sin Clasificar</CardTitle>
+                        <CardDescription>Cuentas que necesitan clasificación</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="relative">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Código</TableHead>
+                                <TableHead>Concepto</TableHead>
+                                <TableHead className="text-right">Monto</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {validationSummary.unclassifiedItems.slice(0, 10).map((item, index) => (
+                                <TableRow key={item.Codigo || index}>
+                                  <TableCell className="font-mono text-sm">{item.Codigo}</TableCell>
+                                  <TableCell className="max-w-xs truncate">{item.Concepto}</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(item.Monto)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                          {validationSummary.unclassifiedItems.length > 10 && (
+                            <div className="text-center py-2 text-sm text-gray-500">
+                              ... y {validationSummary.unclassifiedItems.length - 10} más
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            /* Show traditional validation directly if no family validation */
+            <div className="space-y-6">
+              {/* Totals Comparison */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Comparación de Totales</CardTitle>
+                  <CardDescription>Comparación entre totales jerárquicos y clasificados</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-medium mb-3 text-green-600">Ingresos</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Total Jerárquico (4100-0000-000-000):</span>
+                          <span className="font-mono">{formatCurrency(validationSummary.hierarchyTotals.ingresos)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total Clasificado:</span>
+                          <span className="font-mono">{formatCurrency(validationSummary.classifiedTotals.ingresos)}</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-2">
+                          <span>Variación:</span>
+                          <span className={`font-mono ${Math.abs(validationSummary.variance.ingresos) > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatCurrency(validationSummary.variance.ingresos)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-medium mb-3 text-red-600">Egresos</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Total Jerárquico (5000-0000-000-000):</span>
+                          <span className="font-mono">{formatCurrency(validationSummary.hierarchyTotals.egresos)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total Clasificado:</span>
+                          <span className="font-mono">{formatCurrency(validationSummary.classifiedTotals.egresos)}</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-2">
+                          <span>Variación:</span>
+                          <span className={`font-mono ${Math.abs(validationSummary.variance.egresos) > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatCurrency(validationSummary.variance.egresos)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Unclassified Items */}
+              {validationSummary.unclassifiedItems.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Elementos Sin Clasificar</CardTitle>
+                    <CardDescription>Cuentas que necesitan clasificación</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="relative">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Código</TableHead>
+                            <TableHead>Concepto</TableHead>
+                            <TableHead className="text-right">Monto</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {validationSummary.unclassifiedItems.slice(0, 10).map((item, index) => (
+                            <TableRow key={item.Codigo || index}>
+                              <TableCell className="font-mono text-sm">{item.Codigo}</TableCell>
+                              <TableCell className="max-w-xs truncate">{item.Concepto}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(item.Monto)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      {validationSummary.unclassifiedItems.length > 10 && (
+                        <div className="text-center py-2 text-sm text-gray-500">
+                          ... y {validationSummary.unclassifiedItems.length - 10} más
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
 
           {/* Report Metadata */}

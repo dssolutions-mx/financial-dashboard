@@ -149,6 +149,334 @@ export interface Database {
         }
         Relationships: []
       }
+      // Enhanced Dynamic Classification System Tables
+      classification_rules: {
+        Row: {
+          id: string
+          account_code: string
+          account_name: string | null
+          account_type: string
+          division: string
+          product_service: string
+          detail: string
+          hierarchy_level: number
+          family_code: string
+          tipo: string
+          categoria_1: string
+          sub_categoria: string
+          clasificacion: string
+          plant_pattern: string | null
+          priority: number | null
+          is_active: boolean | null
+          effective_from: string
+          effective_to: string | null
+          created_by: string | null
+          approved_by: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          account_code: string
+          account_name?: string | null
+          account_type: string
+          division: string
+          product_service: string
+          detail: string
+          hierarchy_level: number
+          family_code: string
+          tipo: string
+          categoria_1: string
+          sub_categoria: string
+          clasificacion: string
+          plant_pattern?: string | null
+          priority?: number | null
+          is_active?: boolean | null
+          effective_from?: string
+          effective_to?: string | null
+          created_by?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          account_code?: string
+          account_name?: string | null
+          account_type?: string
+          division?: string
+          product_service?: string
+          detail?: string
+          hierarchy_level?: number
+          family_code?: string
+          tipo?: string
+          categoria_1?: string
+          sub_categoria?: string
+          clasificacion?: string
+          plant_pattern?: string | null
+          priority?: number | null
+          is_active?: boolean | null
+          effective_from?: string
+          effective_to?: string | null
+          created_by?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      account_hierarchies: {
+        Row: {
+          id: string
+          account_code: string
+          account_name: string
+          account_type: string
+          division: string
+          product_service: string
+          detail: string
+          hierarchy_level: number
+          family_code: string
+          parent_code: string | null
+          is_leaf_node: boolean
+          report_id: string
+          actual_amount: number
+          calculated_amount: number | null
+          variance: number | null
+          variance_percentage: number | null
+          classification_status: 'CLASSIFIED' | 'UNCLASSIFIED' | 'IMPLICITLY_CLASSIFIED'
+          validation_status: 'PERFECT' | 'MINOR_VARIANCE' | 'MAJOR_VARIANCE' | 'CRITICAL_MISMATCH' | 'PENDING'
+          confidence_score: number | null
+          detected_at: string | null
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          id?: string
+          account_code: string
+          account_name: string
+          account_type: string
+          division: string
+          product_service: string
+          detail: string
+          hierarchy_level: number
+          family_code: string
+          parent_code?: string | null
+          is_leaf_node?: boolean
+          report_id: string
+          actual_amount: number
+          calculated_amount?: number | null
+          variance?: number | null
+          variance_percentage?: number | null
+          classification_status?: 'CLASSIFIED' | 'UNCLASSIFIED' | 'IMPLICITLY_CLASSIFIED'
+          validation_status?: 'PERFECT' | 'MINOR_VARIANCE' | 'MAJOR_VARIANCE' | 'CRITICAL_MISMATCH' | 'PENDING'
+          confidence_score?: number | null
+          detected_at?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          id?: string
+          account_code?: string
+          account_name?: string
+          account_type?: string
+          division?: string
+          product_service?: string
+          detail?: string
+          hierarchy_level?: number
+          family_code?: string
+          parent_code?: string | null
+          is_leaf_node?: boolean
+          report_id?: string
+          actual_amount?: number
+          calculated_amount?: number | null
+          variance?: number | null
+          variance_percentage?: number | null
+          classification_status?: 'CLASSIFIED' | 'UNCLASSIFIED' | 'IMPLICITLY_CLASSIFIED'
+          validation_status?: 'PERFECT' | 'MINOR_VARIANCE' | 'MAJOR_VARIANCE' | 'CRITICAL_MISMATCH' | 'PENDING'
+          confidence_score?: number | null
+          detected_at?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_hierarchies_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "financial_reports"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      hierarchy_alerts: {
+        Row: {
+          id: string
+          report_id: string
+          family_code: string
+          alert_type: 'OVER_CLASSIFICATION' | 'MIXED_LEVEL4_SIBLINGS' | 'MIXED_LEVEL3_SIBLINGS' | 'UNDER_CLASSIFICATION' | 'MISSING_PARENT' | 'ORPHANED_CHILD' | 'AMOUNT_MISMATCH' | 'DUPLICATE_CLASSIFICATION'
+          severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+          parent_code: string
+          child_codes: string[] | null
+          classified_children: string[] | null
+          unclassified_children: string[] | null
+          expected_amount: number | null
+          actual_amount: number | null
+          variance: number | null
+          financial_impact: number | null
+          completeness_percentage: number | null
+          error_message: string
+          business_impact: string
+          actionable_resolution: string[]
+          suggested_action: string | null
+          auto_fix_possible: boolean | null
+          priority_rank: number | null
+          status: 'OPEN' | 'INVESTIGATING' | 'RESOLVED' | 'IGNORED'
+          resolved_at: string | null
+          resolved_by: string | null
+          resolution_notes: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          report_id: string
+          family_code: string
+          alert_type: 'OVER_CLASSIFICATION' | 'MIXED_LEVEL4_SIBLINGS' | 'MIXED_LEVEL3_SIBLINGS' | 'UNDER_CLASSIFICATION' | 'MISSING_PARENT' | 'ORPHANED_CHILD' | 'AMOUNT_MISMATCH' | 'DUPLICATE_CLASSIFICATION'
+          severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+          parent_code: string
+          child_codes?: string[] | null
+          classified_children?: string[] | null
+          unclassified_children?: string[] | null
+          expected_amount?: number | null
+          actual_amount?: number | null
+          variance?: number | null
+          financial_impact?: number | null
+          completeness_percentage?: number | null
+          error_message: string
+          business_impact: string
+          actionable_resolution: string[]
+          suggested_action?: string | null
+          auto_fix_possible?: boolean | null
+          priority_rank?: number | null
+          status?: 'OPEN' | 'INVESTIGATING' | 'RESOLVED' | 'IGNORED'
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolution_notes?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          report_id?: string
+          family_code?: string
+          alert_type?: 'OVER_CLASSIFICATION' | 'MIXED_LEVEL4_SIBLINGS' | 'MIXED_LEVEL3_SIBLINGS' | 'UNDER_CLASSIFICATION' | 'MISSING_PARENT' | 'ORPHANED_CHILD' | 'AMOUNT_MISMATCH' | 'DUPLICATE_CLASSIFICATION'
+          severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+          parent_code?: string
+          child_codes?: string[] | null
+          classified_children?: string[] | null
+          unclassified_children?: string[] | null
+          expected_amount?: number | null
+          actual_amount?: number | null
+          variance?: number | null
+          financial_impact?: number | null
+          completeness_percentage?: number | null
+          error_message?: string
+          business_impact?: string
+          actionable_resolution?: string[]
+          suggested_action?: string | null
+          auto_fix_possible?: boolean | null
+          priority_rank?: number | null
+          status?: 'OPEN' | 'INVESTIGATING' | 'RESOLVED' | 'IGNORED'
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolution_notes?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hierarchy_alerts_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "financial_reports"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      family_validation_results: {
+        Row: {
+          id: string
+          report_id: string
+          family_code: string
+          family_name: string
+          total_amount: number
+          level4_count: number | null
+          level3_count: number | null
+          level2_count: number | null
+          level1_count: number | null
+          level4_classified: number | null
+          level3_classified: number | null
+          level2_classified: number | null
+          level1_classified: number | null
+          has_issues: boolean | null
+          issue_count: number | null
+          financial_impact: number | null
+          completeness_percentage: number | null
+          recommended_approach: 'DETAIL_CLASSIFICATION' | 'SUMMARY_CLASSIFICATION' | 'HIGH_LEVEL_CLASSIFICATION' | null
+          current_completeness: number | null
+          validated_at: string | null
+        }
+        Insert: {
+          id?: string
+          report_id: string
+          family_code: string
+          family_name: string
+          total_amount: number
+          level4_count?: number | null
+          level3_count?: number | null
+          level2_count?: number | null
+          level1_count?: number | null
+          level4_classified?: number | null
+          level3_classified?: number | null
+          level2_classified?: number | null
+          level1_classified?: number | null
+          has_issues?: boolean | null
+          issue_count?: number | null
+          financial_impact?: number | null
+          completeness_percentage?: number | null
+          recommended_approach?: 'DETAIL_CLASSIFICATION' | 'SUMMARY_CLASSIFICATION' | 'HIGH_LEVEL_CLASSIFICATION' | null
+          current_completeness?: number | null
+          validated_at?: string | null
+        }
+        Update: {
+          id?: string
+          report_id?: string
+          family_code?: string
+          family_name?: string
+          total_amount?: number
+          level4_count?: number | null
+          level3_count?: number | null
+          level2_count?: number | null
+          level1_count?: number | null
+          level4_classified?: number | null
+          level3_classified?: number | null
+          level2_classified?: number | null
+          level1_classified?: number | null
+          has_issues?: boolean | null
+          issue_count?: number | null
+          financial_impact?: number | null
+          completeness_percentage?: number | null
+          recommended_approach?: 'DETAIL_CLASSIFICATION' | 'SUMMARY_CLASSIFICATION' | 'HIGH_LEVEL_CLASSIFICATION' | null
+          current_completeness?: number | null
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_validation_results_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "financial_reports"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       plant_volumes: {
         Row: {
           id: string
@@ -232,7 +560,37 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_hierarchy_level: {
+        Args: {
+          account_code: string
+        }
+        Returns: number
+      }
+      get_family_code: {
+        Args: {
+          account_code: string
+        }
+        Returns: string
+      }
+      get_parent_code: {
+        Args: {
+          account_code: string
+        }
+        Returns: string | null
+      }
+      validate_hierarchy_amounts: {
+        Args: {
+          report_uuid: string
+        }
+        Returns: {
+          parent_code: string
+          parent_name: string
+          parent_amount: number
+          children_sum: number
+          variance: number
+          validation_status: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

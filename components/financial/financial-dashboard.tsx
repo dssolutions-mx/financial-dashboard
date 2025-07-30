@@ -7,6 +7,7 @@ import { DebugDataRow } from "@/lib/services/excel-processor"
 interface FinancialDashboardProps {
   initialData: DebugDataRow[]
   onDataUpdate: (data: DebugDataRow[]) => void
+  onReportIdChange?: (reportId: string | null) => void
 }
 
 /**
@@ -23,11 +24,12 @@ interface FinancialDashboardProps {
  * - FinancialDataTable: Main data table with filtering and unit price view
  * - Various modals: Debug, validation, report selection
  */
-const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, onDataUpdate }) => {
+const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ initialData, onDataUpdate, onReportIdChange }) => {
   return (
     <FinancialDashboardMain 
       initialData={initialData} 
       onDataUpdate={onDataUpdate} 
+      onReportIdChange={onReportIdChange}
     />
   )
 }

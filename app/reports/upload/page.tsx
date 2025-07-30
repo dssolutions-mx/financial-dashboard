@@ -31,44 +31,18 @@ export default function UploadPage() {
       setUploadStatus('uploading')
       setUploadProgress(10)
 
-      // Process the Excel file
-      const { processedData, rawData, fileName } = await handleBalanzaFileUpload(file)
+      // Process the file
+      const { data: processedData, rawData } = await handleBalanzaFileUpload(file)
       setUploadProgress(40)
       setUploadStatus('processing')
 
-      // Validate the processed data
-      const validation = validationEngine.validateProcessedData(processedData)
+      // Validate data
+      setUploadProgress(50)
+      const validation = validationEngine.validateData(processedData, rawData)
       setUploadProgress(70)
 
-      if (validation.isValid) {
-        // Extract metadata for saving
-        const reportName = `Reporte ${new Date().toLocaleDateString('es-MX')}`
-        const currentDate = new Date()
-        const month = currentDate.getMonth() + 1
-        const year = currentDate.getFullYear()
-
-        // Save to Supabase
-        const savedReport = await storageService.saveFinancialData(
-          reportName,
-          fileName,
-          month,
-          year,
-          processedData
-        )
-
-        setUploadProgress(100)
-        setUploadStatus('success')
-        setUploadResult({
-          report: savedReport,
-          recordCount: processedData.length,
-          validation
-        })
-
-        toast({
-          title: "¡Carga exitosa!",
-          description: `Se procesaron ${processedData.length} registros correctamente.`,
-        })
-      } else {
+      // Check if validation passes
+      if (!validation.isValid) {
         setUploadStatus('error')
         setUploadResult({ validation })
         
@@ -77,19 +51,42 @@ export default function UploadPage() {
           description: "El archivo contiene errores que deben corregirse.",
           variant: "destructive"
         })
+        return
       }
+
+      // Save to Supabase
+      const savedReport = await storageService.saveFinancialData(
+        file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
+        file.name,
+        new Date().getMonth() + 1,
+        new Date().getFullYear(),
+        processedData
+      )
+
+      setUploadProgress(100)
+      setUploadStatus('success')
+      setUploadResult({
+        report: savedReport,
+        recordCount: processedData.length,
+        validation
+      })
+
+      toast({
+        title: "Archivo cargado exitosamente",
+        description: `Se procesaron ${processedData.length} registros correctamente.`,
+        variant: "default"
+      })
+
     } catch (error) {
       console.error("Error uploading file:", error)
       setUploadStatus('error')
       toast({
         title: "Error al cargar archivo",
-        description: "No se pudo procesar el archivo. Verifica el formato.",
+        description: "Ocurrió un error al procesar el archivo. Verifica el formato e inténtalo de nuevo.",
         variant: "destructive"
       })
     } finally {
       setIsUploading(false)
-      // Reset file input
-      event.target.value = ''
     }
   }
 
@@ -117,35 +114,33 @@ export default function UploadPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Upload className="h-5 w-5" />
-                Subir Archivo de Balanza
+                Cargar Archivo de Balanza
               </CardTitle>
               <CardDescription>
-                Selecciona un archivo Excel (.xlsx) con la balanza financiera
+                Selecciona un archivo de Excel con datos de balanza de comprobación
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               {uploadStatus === 'idle' && (
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="excel-file">Archivo Excel</Label>
-                    <Input
-                      id="excel-file"
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <input
                       type="file"
                       accept=".xlsx,.xls"
                       onChange={handleFileUpload}
                       disabled={isUploading}
-                      className="cursor-pointer"
+                      className="hidden"
+                      id="file-upload"
                     />
-                  </div>
-                  
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">Requisitos del archivo:</h4>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Formato Excel (.xlsx)</li>
-                      <li>• Estructura de balanza estándar</li>
-                      <li>• Columnas: Código, Concepto, Abonos, Cargos</li>
-                      <li>• Datos válidos en todas las filas</li>
-                    </ul>
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                      <p className="text-lg font-medium text-gray-900 mb-2">
+                        Haz clic para seleccionar archivo
+                      </p>
+                      <p className="text-gray-500">
+                        Formatos soportados: .xlsx, .xls
+                      </p>
+                    </label>
                   </div>
                 </div>
               )}
@@ -153,12 +148,11 @@ export default function UploadPage() {
               {(uploadStatus === 'uploading' || uploadStatus === 'processing') && (
                 <div className="space-y-4">
                   <div className="text-center">
-                    <div className="inline-flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    <div className="text-lg font-medium mb-2">
                       {uploadStatus === 'uploading' ? 'Subiendo archivo...' : 'Procesando datos...'}
                     </div>
+                    <Progress value={uploadProgress} className="w-full" />
                   </div>
-                  <Progress value={uploadProgress} className="w-full" />
                 </div>
               )}
 
@@ -166,18 +160,16 @@ export default function UploadPage() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-green-600">
                     <CheckCircle className="h-5 w-5" />
-                    <span className="font-medium">¡Carga completada exitosamente!</span>
+                    <span className="font-medium">Archivo cargado exitosamente</span>
                   </div>
-                  
-                  <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">Resumen de la carga:</h4>
-                    <ul className="text-sm space-y-1">
+                  <div className="bg-green-50 p-4 rounded">
+                    <h4 className="font-medium mb-2">Detalles del archivo:</h4>
+                    <ul className="space-y-1 text-sm">
                       <li>• <strong>Reporte:</strong> {uploadResult.report.name}</li>
                       <li>• <strong>Registros procesados:</strong> {uploadResult.recordCount}</li>
                       <li>• <strong>Fecha:</strong> {new Date(uploadResult.report.created_at).toLocaleDateString('es-MX')}</li>
                     </ul>
                   </div>
-
                   <Button onClick={resetUpload} variant="outline" className="w-full">
                     Cargar otro archivo
                   </Button>
@@ -188,13 +180,13 @@ export default function UploadPage() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-red-600">
                     <AlertCircle className="h-5 w-5" />
-                    <span className="font-medium">Error en la carga</span>
+                    <span className="font-medium">Error al cargar archivo</span>
                   </div>
-                  
+
                   {uploadResult?.validation && (
-                    <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+                    <div className="bg-red-50 p-4 rounded">
                       <h4 className="font-medium mb-2">Errores encontrados:</h4>
-                      <ul className="text-sm space-y-1">
+                      <ul className="space-y-1 text-sm list-disc list-inside">
                         {uploadResult.validation.errors.map((error: string, index: number) => (
                           <li key={index}>• {error}</li>
                         ))}
@@ -203,7 +195,7 @@ export default function UploadPage() {
                   )}
 
                   <Button onClick={resetUpload} variant="outline" className="w-full">
-                    Intentar nuevamente
+                    Intentar de nuevo
                   </Button>
                 </div>
               )}
