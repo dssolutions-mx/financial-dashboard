@@ -93,32 +93,49 @@ export class ImprovedHierarchyDetector {
       return { level: 1, confidence: 1.0 }; // Cuenta principal
     }
     
+    // NUEVO: Detección específica de cuentas padre de familia 5000 existentes
+    if (parsed.nivel1 === '5000' && parsed.nivel3 === '000' && parsed.nivel4 === '000' && 
+        ['2000', '3000', '4000', '5000', '8000', '9000'].includes(parsed.nivel2)) {
+      console.log(`   ✅ Nivel 2: Padre específico de familia 5000 (${parsed.nivel2})`);
+      return { level: 2, confidence: 1.0 }; // Padre específico de familia
+    }
+    
+    // NUEVO: Detección de cuentas que pertenecen a familias específicas
+    if (parsed.nivel1 === '5000' && parsed.nivel3 === '000' && parsed.nivel4 === '000') {
+      const familyNumber = parsed.nivel2.substring(0, 1);
+      if (['2', '3', '4', '5', '8', '9'].includes(familyNumber)) {
+        // Si es exactamente 2000, 3000, etc. es Level 2 (padre)
+        if (parsed.nivel2 === '2000' || parsed.nivel2 === '3000' || parsed.nivel2 === '4000' || 
+            parsed.nivel2 === '5000' || parsed.nivel2 === '8000' || parsed.nivel2 === '9000') {
+          console.log(`   ✅ Nivel 2: Padre específico de familia 5000 (${parsed.nivel2})`);
+          return { level: 2, confidence: 1.0 }; // Padre específico de familia
+        } else {
+          // Si es 2001, 2002, etc. es Level 3 (sub-familia)
+          console.log(`   ✅ Nivel 3: Sub-familia de ${familyNumber}000`);
+          return { level: 3, confidence: 0.9 }; // Sub-familia
+        }
+      }
+    }
+    
     // NUEVO: Detección de secuencias numéricas para jerarquías entre familias
     if (parsed.nivel3 === '000' && parsed.nivel4 === '000' && parsed.nivel2 !== '0000') {
       console.log(`   🔍 Verificando secuencia numérica para: ${codigo}`);
       const sequenceAnalysis = this.analyzeNumericSequence(codigo, familyAccounts);
       if (sequenceAnalysis.isParent) {
-        console.log(`   ✅ Nivel 1: Padre de secuencia`);
-        return { level: 1, confidence: 0.9 }; // Padre de secuencia (nivel superior)
-      } else if (sequenceAnalysis.isChild) {
-        console.log(`   ✅ Nivel 2: Hijo de secuencia`);
-        return { level: 2, confidence: 0.85 }; // Hijo de secuencia
-      } else {
-        // NUEVO: Si no es parte de una secuencia, asignar Nivel 2 por defecto
-        console.log(`   ✅ Nivel 2: Subtotal de familia (no secuencia)`);
-        return { level: 2, confidence: 0.95 }; // Subtotal de familia
+        console.log(`   ✅ Nivel 2: Padre por secuencia numérica`);
+        return { level: 2, confidence: 0.9 }; // Padre por secuencia
       }
     }
     
-    // Nivel 3: Subcategorías (4100-1000-001-000, 5000-1000-001-000)
+    // Nivel 3: Sub-categorías (XXX-YYYY-ZZZ-000)
     if (parsed.nivel4 === '000' && parsed.nivel3 !== '000') {
-      console.log(`   ✅ Nivel 3: Subcategoría`);
-      return { level: 3, confidence: 0.9 }; // Subcategoría
+      console.log(`   ✅ Nivel 3: Sub-categoría`);
+      return { level: 3, confidence: 0.8 }; // Sub-categoría
     }
     
-    // Nivel 4: Cuentas de detalle (4100-1000-001-001, 5000-1000-001-001)
+    // Nivel 4: Cuentas detalle (XXX-YYYY-ZZZ-WWW)
     console.log(`   ✅ Nivel 4: Cuenta detalle`);
-    return { level: 4, confidence: 0.95 }; // Cuenta detalle
+    return { level: 4, confidence: 0.7 }; // Cuenta detalle
   }
 
   /**
@@ -335,7 +352,40 @@ export class ImprovedHierarchyDetector {
           };
         }
         
-        // PASO 2: Si no existe padre L3, buscar padre L2 (familia)
+        // PASO 2: Si no existe padre L3, buscar padre L2 específico de familia 5000 existente
+        if (parsed.nivel1 === '5000') {
+          const familyNumber = parsed.nivel2.substring(0, 1); // Get first digit of nivel2
+          let specificParentL2 = null;
+          
+          // Mapeo específico para familia 5000 usando cuentas existentes
+          // SOLO mapear si el segundo segmento empieza con 2, 3, 4, 5, 8, 9
+          if (familyNumber === '2') {
+            specificParentL2 = '5000-2000-000-000'; // Mano de Obra
+          } else if (familyNumber === '3') {
+            specificParentL2 = '5000-3000-000-000'; // Gastos Indirectos
+          } else if (familyNumber === '4') {
+            specificParentL2 = '5000-4000-000-000'; // Gastos de Operación
+          } else if (familyNumber === '5') {
+            specificParentL2 = '5000-5000-000-000'; // Gastos de Operación
+          } else if (familyNumber === '8') {
+            specificParentL2 = '5000-8000-000-000'; // Gastos Financieros
+          } else if (familyNumber === '9') {
+            specificParentL2 = '5000-9000-000-000'; // Otros Gastos
+          }
+          // NO mapear 5000-1xxx a 5000-2000-000-000 - esto es incorrecto
+          
+          if (specificParentL2 && allAccounts.has(specificParentL2)) {
+            console.log(`   ✅ Asignando padre L2 específico existente: ${specificParentL2}`);
+            warnings.push(`Padre L3 ${expectedParentL3} no existe, asignado a padre L2 específico ${specificParentL2}`);
+            return {
+              parent: specificParentL2,
+              parentType: 'FAMILY_ROOT',
+              warnings
+            };
+          }
+        }
+        
+        // PASO 3: If not specific L2, try general L2 (family)
         const expectedParentL2 = `${parsed.family}-000-000`;
         console.log(`   Buscando padre L2: ${expectedParentL2}, ¿Existe?: ${allAccounts.has(expectedParentL2)}`);
         
@@ -349,7 +399,7 @@ export class ImprovedHierarchyDetector {
           };
         }
         
-        // PASO 3: Si no existe padre L2, buscar padre L1 (cuenta principal)
+        // PASO 4: Si no existe padre L2, buscar padre L1 (cuenta principal)
         const parentL1ForL4 = `${parsed.nivel1}-0000-000-000`;
         console.log(`   Buscando padre L1: ${parentL1ForL4}, ¿Existe?: ${allAccounts.has(parentL1ForL4)}`);
         
@@ -363,7 +413,7 @@ export class ImprovedHierarchyDetector {
           };
         }
         
-        // PASO 4: Si no existe padre L1, será raíz
+        // PASO 5: Si no existe padre L1, será raíz
         console.log(`   ❌ Sin padre, será raíz`);
         warnings.push(`Cuenta huérfana: no se encontraron padres en ningún nivel`);
         return {
@@ -374,6 +424,38 @@ export class ImprovedHierarchyDetector {
         
       case 3: // Sub-categoría
         console.log(`🔍 DETERMINANDO PADRE para Level 3: ${codigo}`);
+        
+        // NUEVO: Para cuentas 5000, buscar padre específico de familia
+        if (parsed.nivel1 === '5000' && parsed.nivel3 === '000' && parsed.nivel4 === '000') {
+          const familyNumber = parsed.nivel2.substring(0, 1);
+          let specificParentL2 = null;
+          
+          // Mapeo específico para familia 5000 usando cuentas existentes
+          if (familyNumber === '2') {
+            specificParentL2 = '5000-2000-000-000'; // Gastos de Administración
+          } else if (familyNumber === '3') {
+            specificParentL2 = '5000-3000-000-000'; // Gastos Indirectos
+          } else if (familyNumber === '4') {
+            specificParentL2 = '5000-4000-000-000'; // Gastos de Operación
+          } else if (familyNumber === '5') {
+            specificParentL2 = '5000-5000-000-000'; // Gastos de Operación
+          } else if (familyNumber === '8') {
+            specificParentL2 = '5000-8000-000-000'; // Gastos Financieros
+          } else if (familyNumber === '9') {
+            specificParentL2 = '5000-9000-000-000'; // Otros Gastos
+          }
+          
+          if (specificParentL2 && allAccounts.has(specificParentL2)) {
+            console.log(`   ✅ Asignando padre L2 específico existente: ${specificParentL2}`);
+            warnings.push(`Sub-familia ${codigo} asignada a padre L2 específico ${specificParentL2}`);
+            return {
+              parent: specificParentL2,
+              parentType: 'FAMILY_ROOT',
+              warnings
+            };
+          }
+        }
+        
         const familyRootL3 = `${parsed.family}-000-000`;
         console.log(`   Buscando raíz de familia: ${familyRootL3}, ¿Existe?: ${allAccounts.has(familyRootL3)}`);
         

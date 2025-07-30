@@ -10,6 +10,8 @@ const testAccounts = [
   '5000-5000-000-000', // Level 2 - parent for 5000 family
   '5000-8000-000-000', // Level 2 - parent for 8000 family
   '5000-9000-000-000', // Level 2 - parent for 9000 family
+  '5000-2001-000-000', // Level 3 - should be child of 5000-2000-000-000
+  '5000-2002-000-000', // Level 3 - should be child of 5000-2000-000-000
   '5000-1001-001-001', // Level 4 - detail
   '5000-1002-001-001', // Level 4 - detail
   '5000-1003-001-001', // Level 4 - detail

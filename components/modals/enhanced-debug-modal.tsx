@@ -204,7 +204,7 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
       console.log('Enhanced data length:', enhancedData.length)
       
       // NUEVO: Test simple para verificar la lógica de jerarquía
-      const testAccounts = ['5000-0000-000-000', '5000-2000-000-000', '5000-1001-001-001', '5000-1004-100-000']
+      const testAccounts = ['5000-2000-000-000', '5000-3000-000-000', '5000-4000-000-000', '5000-5000-000-000', '5000-8000-000-000', '5000-9000-000-000', '5000-1001-001-001', '5000-1004-100-000']
       console.log('🧪 TEST SIMPLE PARA CUENTAS REALES DEL DATASET')
       improvedHierarchyDetector.testNumericSequenceDetection(testAccounts)
       
@@ -994,7 +994,7 @@ export default function EnhancedDebugModal({
     console.log('Input data length:', data.length)
     
     // NUEVO: Test simple para verificar la lógica de jerarquía
-    const testAccounts = ['5000-0000-000-000', '5000-2000-000-000', '5000-1001-001-001', '5000-1004-100-000']
+    const testAccounts = ['5000-2000-000-000', '5000-3000-000-000', '5000-4000-000-000', '5000-5000-000-000', '5000-8000-000-000', '5000-9000-000-000', '5000-1001-001-001', '5000-1004-100-000']
     console.log('🧪 TEST SIMPLE PARA CUENTAS REALES DEL DATASET')
     improvedHierarchyDetector.testNumericSequenceDetection(testAccounts)
     
