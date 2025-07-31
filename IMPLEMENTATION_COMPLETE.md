@@ -62,7 +62,7 @@ The **Enhanced Dynamic Classification System** has been successfully implemented
 #### **Database Schema**
 - ✅ **classification_rules**: Central repository of all classification rules
 - ✅ **account_hierarchies**: Precise family relationship tracking
-- ✅ **hierarchy_alerts**: Issue detection and alerting
+- ✅ **validate-families**: Core family validation (only validation system in use)
 - ✅ **family_validation_results**: Validation result summaries
 
 ## 🔄 Retroactive Classification Workflow
@@ -87,7 +87,7 @@ User changes account "5000-1002-001-001" from "Materiales" to "Materia Prima"
 
 ### **For Traditional Users**
 - ✅ **Preserves Familiar Workflow**: Can continue using traditional dashboard
-- ✅ **Automatic Issue Detection**: Orange alerts appear when problems are found
+- ✅ **Family-Based Validation**: validate-families API provides comprehensive error detection
 - ✅ **Optional Enhancement**: Can switch to advanced features when needed
 
 ### **For Advanced Users**

@@ -255,27 +255,12 @@ export class SophisticatedBottomUpValidator {
 
   /**
    * Real-Time Hierarchy Validation Query
+   * DEPRECATED: This method is no longer used as validate-families provides better validation
    */
   async validateHierarchyAmounts(reportId: string): Promise<ValidationResult[]> {
-    try {
-      const response = await fetch('/api/classification/validate-hierarchy', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reportId }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Hierarchy validation failed: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      return data.results || []
-    } catch (error) {
-      console.error('Hierarchy amount validation error:', error)
-      throw error
-    }
+    // This method is deprecated - use validateHierarchyFamilies instead
+    console.warn('validateHierarchyAmounts is deprecated. Use validateHierarchyFamilies for better validation.')
+    return []
   }
 
   // Helper methods

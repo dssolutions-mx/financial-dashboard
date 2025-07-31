@@ -138,27 +138,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Create hierarchy alert if significant changes
+    // 3. Log significant changes (hierarchy_alerts removed as it was unused)
     if (retroactiveChanges.length > 10 || totalFinancialImpact > 1000000) {
-      await supabase
-        .from('hierarchy_alerts')
-        .insert({
-          report_id: affectedReports[0] || '', // Use first affected report
-          family_code: familyCode,
-          alert_type: 'CLASSIFICATION_UPDATE',
-          severity: totalFinancialImpact > 5000000 ? 'CRITICAL' : 'HIGH',
-          parent_code: accountCode,
-          financial_impact: totalFinancialImpact,
-          error_message: `Retroactive classification update applied to ${retroactiveChanges.length} records`,
-          business_impact: `${formatCurrency(totalFinancialImpact)} affected across ${affectedReports.length} reports`,
-          actionable_resolution: [
-            'Review affected reports for data consistency',
-            'Verify updated classifications in financial analysis',
-            'Consider re-running family validation'
-          ],
-          auto_fix_possible: false,
-          priority_rank: 2
-        })
+      console.log(`Significant retroactive changes: ${retroactiveChanges.length} records, ${formatCurrency(totalFinancialImpact)} impact`)
     }
 
     // 4. Return impact summary

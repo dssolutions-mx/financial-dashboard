@@ -14,7 +14,7 @@ import VolumeInputModal from "@/components/modals/volume-input-modal"
 import CashSalesInputModal from "@/components/modals/cash-sales-input-modal"
 import FamilyAwareClassificationModal from "@/components/classification/FamilyAwareClassificationModal"
 import ReportSelector from "@/components/reports/report-selector"
-import { SophisticatedBottomUpValidator, FamilyValidationResult } from "@/lib/services/sophisticated-bottom-up-validator.service"
+// Family validation imports removed - no longer needed
 import { FamilyAwareClassificationService, Classification } from "@/lib/services/family-aware-classification.service"
 
 interface FinancialDashboardMainProps {
@@ -151,9 +151,8 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
     code: string;
     name: string;
   } | null>(null)
-  const [familyValidationResults, setFamilyValidationResults] = useState<FamilyValidationResult[]>([])
-  const [isRunningFamilyValidation, setIsRunningFamilyValidation] = useState(false)
-  const [showClassificationIssues, setShowClassificationIssues] = useState(false)
+  // Family validation state removed - no longer needed
+  // Family validation state removed - no longer needed
   
   const storageService = new SupabaseStorageService()
   const { toast } = useToast()
@@ -611,45 +610,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
     setCashSalesData(cashSalesData)
   }, [currentMonth, currentYear, storageService])
 
-  // Enhanced Classification System handlers
-  const runFamilyValidation = useCallback(async () => {
-    if (!selectedReportId) {
-      toast({
-        title: "No hay reporte seleccionado",
-        description: "Selecciona un reporte para ejecutar la validación familia por familia",
-        variant: "destructive"
-      })
-      return
-    }
-
-    setIsRunningFamilyValidation(true)
-    try {
-      const validationResults = await SophisticatedBottomUpValidator.validateHierarchyFamilies(selectedReportId)
-      setFamilyValidationResults(validationResults)
-      
-      const totalIssues = validationResults.reduce((sum, family) => sum + family.issues.length, 0)
-      const totalImpact = validationResults.reduce((sum, family) => sum + family.financial_impact, 0)
-      
-      toast({
-        title: "Validación familia por familia completada",
-        description: `${totalIssues} problemas detectados con impacto de ${formatMoney(totalImpact, true)}`,
-        duration: 5000,
-      })
-      
-      if (totalIssues > 0) {
-        setShowClassificationIssues(true)
-      }
-    } catch (error) {
-      console.error('Error running family validation:', error)
-      toast({
-        title: "Error en validación",
-        description: "No se pudo ejecutar la validación familia por familia",
-        variant: "destructive"
-      })
-    } finally {
-      setIsRunningFamilyValidation(false)
-    }
-  }, [selectedReportId, toast])
+  // Family validation removed - no longer needed
 
   const handleAccountClassification = useCallback((accountCode: string, accountName: string) => {
     setSelectedAccountForClassification({ code: accountCode, name: accountName })
@@ -680,10 +641,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
         description: `Cuenta ${selectedAccountForClassification?.code} clasificada exitosamente`,
       })
 
-      // Re-run family validation if it was previously run
-      if (familyValidationResults.length > 0) {
-        setTimeout(() => runFamilyValidation(), 1000)
-      }
+      // Family validation removed - no longer needed
     } catch (error) {
       console.error('Error applying classification:', error)
       toast({
@@ -692,7 +650,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
         variant: "destructive"
       })
     }
-  }, [data, onDataUpdate, selectedAccountForClassification, familyValidationResults.length, runFamilyValidation, toast])
+  }, [data, onDataUpdate, selectedAccountForClassification, toast])
 
 
 
@@ -717,11 +675,10 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
         result.data
       )
 
-      // Use the new family-based validation
-      const summary = await validationEngine.validateDataWithFamilyAnalysis(
+      // Use basic validation only (family validation removed as it was not being used correctly)
+      const summary = validationEngine.validateData(
         result.data, 
-        result.rawData,
-        tempReport.id
+        result.rawData
       )
       
       setValidationSummary(summary)
@@ -978,17 +935,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
                 {showReportSelector ? "Ocultar Reportes" : "Ver Reportes"}
               </Button>
               
-              {selectedReportId && (
-                <Button
-                  variant={familyValidationResults.length > 0 ? "default" : "outline"}
-                  onClick={runFamilyValidation}
-                  disabled={isRunningFamilyValidation}
-                  className="flex items-center gap-2"
-                >
-                  <TrendingUp className="h-4 w-4" />
-                  {isRunningFamilyValidation ? "Validando..." : "Validación Familia por Familia"}
-                </Button>
-              )}
+
             </div>
           </div>
         </div>
@@ -1064,89 +1011,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
         </div>
       )}
 
-      {/* Family Validation Issues */}
-      {showClassificationIssues && familyValidationResults.length > 0 && (
-        <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
-          <div className="flex flex-col space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Settings className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                <div>
-                  <h3 className="text-sm font-medium text-orange-900 dark:text-orange-100">
-                    Problemas de Clasificación Detectados ({familyValidationResults.filter(f => f.hasIssues).length})
-                  </h3>
-                  <p className="text-xs text-orange-700 dark:text-orange-300">
-                    {(() => {
-                      const totalIssues = familyValidationResults.reduce((sum, family) => sum + family.issues.length, 0)
-                      const totalImpact = familyValidationResults.reduce((sum, family) => sum + family.financial_impact, 0)
-                      return `${totalIssues} problemas con impacto financiero de ${formatMoney(totalImpact, true)}`
-                    })()}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowClassificationIssues(false)}
-                  className="text-orange-600 hover:text-orange-700 border-orange-300"
-                >
-                  Ocultar
-                </Button>
-              </div>
-            </div>
-            
-            {/* Top Issues Preview */}
-            <div className="space-y-2">
-              {familyValidationResults
-                .filter(f => f.hasIssues)
-                .sort((a, b) => b.financial_impact - a.financial_impact)
-                .slice(0, 3)
-                .map((family, index) => (
-                  <div key={family.family_code} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border border-orange-200">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-gray-600">{family.family_code}</span>
-                      <span className="text-xs text-gray-700">{family.family_name}</span>
-                      <div className="flex gap-1">
-                        {family.issues.slice(0, 2).map((issue, i) => (
-                          <span key={i} className={`px-1.5 py-0.5 rounded text-xs ${
-                            issue.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' :
-                            issue.severity === 'HIGH' ? 'bg-orange-100 text-orange-700' :
-                            'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {issue.error_type.replace('_', ' ')}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs font-medium text-orange-600">
-                        {formatMoney(family.financial_impact, true)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {family.issues.length} problema{family.issues.length > 1 ? 's' : ''}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              
-              {familyValidationResults.filter(f => f.hasIssues).length > 3 && (
-                <div className="text-center">
-                  <p className="text-xs text-orange-600">
-                    +{familyValidationResults.filter(f => f.hasIssues).length - 3} familias más con problemas
-                  </p>
-                </div>
-              )}
-              
-              <div className="text-center pt-2">
-                <p className="text-xs text-orange-700">
-                  💡 Cambia a la pestaña "Clasificación Inteligente" en el dashboard principal para análisis detallado
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Family validation issues section removed - no longer needed */}
 
       {/* Unit Buttons */}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -1612,23 +1477,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
           await loadVolumeData(metadata.month, metadata.year)
           await loadCashSalesData(metadata.month, metadata.year)
           
-          // Auto-run family validation for the new report
-          setTimeout(() => {
-            SophisticatedBottomUpValidator.validateHierarchyFamilies(report.id).then(validationResults => {
-              setFamilyValidationResults(validationResults)
-              const hasIssues = validationResults.some(f => f.hasIssues)
-              if (hasIssues) {
-                setShowClassificationIssues(true)
-                toast({
-                  title: "Nuevo reporte analizado",
-                  description: `Se detectaron ${validationResults.filter(f => f.hasIssues).length} familias con problemas de clasificación`,
-                  duration: 4000,
-                })
-              }
-            }).catch(error => {
-              console.error('Auto-validation failed for new report:', error)
-            })
-          }, 3000)
+          // Family validation removed - no longer needed
           
           setValidationSummary(null)
           setCurrentProcessedData([])
@@ -1675,22 +1524,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
                 await loadVolumeData(report.month, report.year)
                 await loadCashSalesData(report.month, report.year)
                 
-                // Auto-run family validation for the selected report
-                setTimeout(() => {
-                  SophisticatedBottomUpValidator.validateHierarchyFamilies(report.id).then(validationResults => {
-                    setFamilyValidationResults(validationResults)
-                    const hasIssues = validationResults.some(f => f.hasIssues)
-                    if (hasIssues) {
-                      toast({
-                        title: "Análisis de clasificación completado",
-                        description: `Se detectaron problemas en ${validationResults.filter(f => f.hasIssues).length} familias`,
-                        duration: 3000,
-                      })
-                    }
-                  }).catch(error => {
-                    console.error('Auto-validation failed:', error)
-                  })
-                }, 2000)
+                // Family validation removed - no longer needed
               }
             }}
                          onDeleteReport={async (reportId: string) => {

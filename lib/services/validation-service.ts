@@ -17,33 +17,10 @@ export interface ValidationSummary {
     egresos: number
   }
   validationErrors: string[]
-  // New family-based validation fields
-  familyValidation?: FamilyValidationSummary
-  useFamilyValidation?: boolean
 }
 
 // New interface for family-based validation results
-export interface FamilyValidationSummary {
-  totalFamilies: number
-  familiesWithIssues: number
-  criticalIssues: number
-  totalFinancialImpact: number
-  issues: FamilyIssue[]
-  recommendations: string[]
-  isValid: boolean
-}
-
-export interface FamilyIssue {
-  family_code: string
-  family_name: string
-  error_type: string
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-  financial_impact: number
-  missing_percentage?: number
-  error_message: string
-  business_impact: string
-  actionable_resolution: string[]
-}
+// Family validation interfaces removed - no longer used
 
 export interface ReportMetadata {
   name: string
@@ -117,134 +94,21 @@ export class ValidationEngine {
    * Enhanced family-based validation that replaces simple hierarchy validation
    * This method integrates the sophisticated family validator with the existing workflow
    */
+  /**
+   * Enhanced validation with family analysis
+   * DEPRECATED: This method is no longer used as family validation was removed from the UI
+   */
   async validateDataWithFamilyAnalysis(
     processedData: DebugDataRow[], 
     rawData?: any[], 
     reportId?: string
   ): Promise<ValidationSummary> {
-    // Run basic validation first for backward compatibility
-    const basicValidation = this.validateData(processedData, rawData)
-    
-    // If no reportId provided, return basic validation
-    if (!reportId) {
-      return basicValidation
-    }
-
-    try {
-      // Run sophisticated family validation
-      const response = await fetch('/api/classification/validate-families', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reportId }),
-      })
-
-      if (!response.ok) {
-        console.warn('Family validation failed, falling back to basic validation')
-        return basicValidation
-      }
-
-      const familyResults = await response.json()
-      const validationResults = familyResults.validationResults || []
-
-      // Convert family validation results to compatible format
-      const familyValidation = this.convertFamilyValidationResults(validationResults)
-      
-      // Combine basic validation with family validation
-      return {
-        ...basicValidation,
-        familyValidation,
-        useFamilyValidation: true,
-        isValid: familyValidation.isValid && basicValidation.isValid,
-        validationErrors: [
-          ...basicValidation.validationErrors,
-          ...familyValidation.issues
-            .filter(issue => issue.severity === 'CRITICAL')
-            .map(issue => issue.error_message)
-        ]
-      }
-    } catch (error) {
-      console.error('Family validation error:', error)
-      return basicValidation
-    }
+    // This method is deprecated - use validateData instead
+    console.warn('validateDataWithFamilyAnalysis is deprecated. Use validateData for basic validation.')
+    return this.validateData(processedData, rawData)
   }
 
-  /**
-   * Convert sophisticated family validation results to the format expected by the UI
-   */
-  private convertFamilyValidationResults(validationResults: any[]): FamilyValidationSummary {
-    const allIssues: FamilyIssue[] = []
-    let totalFinancialImpact = 0
-    let criticalIssues = 0
-
-    for (const family of validationResults) {
-      for (const issue of family.issues || []) {
-        const familyIssue: FamilyIssue = {
-          family_code: family.family_code,
-          family_name: family.family_name,
-          error_type: issue.error_type,
-          severity: issue.severity,
-          financial_impact: issue.financial_impact,
-          missing_percentage: issue.missing_percentage,
-          error_message: issue.error_message,
-          business_impact: issue.business_impact,
-          actionable_resolution: issue.actionable_resolution
-        }
-        
-        allIssues.push(familyIssue)
-        totalFinancialImpact += issue.financial_impact
-        
-        if (issue.severity === 'CRITICAL') {
-          criticalIssues++
-        }
-      }
-    }
-
-    // Generate recommendations based on issues
-    const recommendations = this.generateFamilyRecommendations(allIssues)
-
-    return {
-      totalFamilies: validationResults.length,
-      familiesWithIssues: validationResults.filter(f => f.hasIssues).length,
-      criticalIssues,
-      totalFinancialImpact,
-      issues: allIssues,
-      recommendations,
-      isValid: criticalIssues === 0 && allIssues.length < 5 // Consider valid if no critical issues and few total issues
-    }
-  }
-
-  /**
-   * Generate actionable recommendations based on family validation issues
-   */
-  private generateFamilyRecommendations(issues: FamilyIssue[]): string[] {
-    const recommendations: string[] = []
-    const criticalIssues = issues.filter(i => i.severity === 'CRITICAL')
-    const mixedSiblingIssues = issues.filter(i => i.error_type === 'MIXED_LEVEL4_SIBLINGS')
-    const overClassificationIssues = issues.filter(i => i.error_type === 'OVER_CLASSIFICATION')
-
-    if (criticalIssues.length > 0) {
-      recommendations.push(`🚨 CRÍTICO: ${criticalIssues.length} problemas críticos requieren atención inmediata`)
-    }
-
-    if (overClassificationIssues.length > 0) {
-      recommendations.push(`⚠️ Hay ${overClassificationIssues.length} casos de sobre-clasificación que causan doble conteo`)
-    }
-
-    if (mixedSiblingIssues.length > 0) {
-      const totalMissingAmount = mixedSiblingIssues.reduce((sum, issue) => sum + issue.financial_impact, 0)
-      recommendations.push(`📊 ${mixedSiblingIssues.length} familias tienen clasificación incompleta (${this.formatCurrency(totalMissingAmount)} sin clasificar)`)
-    }
-
-    if (issues.length === 0) {
-      recommendations.push('✅ Excelente: Todas las familias están correctamente clasificadas')
-    } else if (issues.length < 3) {
-      recommendations.push('✅ Bueno: Solo se detectaron problemas menores de clasificación')
-    }
-
-    return recommendations
-  }
+  // Family validation methods removed - no longer used
 
   /**
    * Extract hierarchy totals from raw Excel data
