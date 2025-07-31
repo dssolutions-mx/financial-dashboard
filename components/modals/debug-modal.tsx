@@ -94,23 +94,23 @@ const DebugModal: React.FC<DebugModalProps> = ({ isOpen, onClose, data, onUpdate
     const updatedData = [...localData]
     updatedData[index] = { ...updatedData[index], [field]: value }
     
-    // Recalculate Monto when Tipo changes
-    if (field === "Tipo") {
-      const row = updatedData[index]
-      const cargos = row.Cargos || 0
-      const abonos = row.Abonos || 0
-      
-      let newMonto = 0
-      if (value === "Ingresos") {
-        newMonto = abonos - cargos // Net income: Abonos minus any returns/adjustments in Cargos
-      } else if (value === "Egresos") {
-        newMonto = cargos - abonos // Net expense: Cargos minus any refunds/adjustments in Abonos
-      } else {
-        newMonto = abonos - cargos // Default logic for indefinido or other types
-      }
-      
-      updatedData[index].Monto = newMonto
-    }
+    // COMENTADO: No recalcular Monto cuando Tipo changes - preservar monto original
+    // if (field === "Tipo") {
+    //   const row = updatedData[index]
+    //   const cargos = row.Cargos || 0
+    //   const abonos = row.Abonos || 0
+    //   
+    //   let newMonto = 0
+    //   if (value === "Ingresos") {
+    //     newMonto = abonos - cargos // Net income: Abonos minus any returns/adjustments in Cargos
+    //   } else if (value === "Egresos") {
+    //     newMonto = cargos - abonos // Net expense: Cargos minus any refunds/adjustments in Abonos
+    //   } else {
+    //     newMonto = abonos - cargos // Default logic for indefinido or other types
+    //   }
+    //   
+    //   updatedData[index].Monto = newMonto
+    // }
     
     setLocalData(updatedData)
     setHasChanges(true)

@@ -75,8 +75,7 @@ export class ImprovedHierarchyDetector {
   }
 
   /**
-   * Análisis por familia - determina nivel basado en la estructura familiar
-   * MEJORADO: Incluye detección de secuencias numéricas para jerarquías entre familias
+   * Analiza una cuenta por familia para determinar su nivel jerárquico
    */
   private analyzeByFamily(codigo: string, familyAccounts: Set<string>): {
     level: number;
@@ -85,18 +84,14 @@ export class ImprovedHierarchyDetector {
     const parsed = this.parseAccountCode(codigo);
     const family = parsed.family;
     
-    console.log(`🔍 ANALIZANDO POR FAMILIA: ${codigo}`);
-    
     // Nivel 1: Cuentas principales (4100-0000-000-000, 5000-0000-000-000)
     if (parsed.nivel2 === '0000' && parsed.nivel3 === '000' && parsed.nivel4 === '000') {
-      console.log(`   ✅ Nivel 1: Cuenta principal`);
       return { level: 1, confidence: 1.0 }; // Cuenta principal
     }
     
     // NUEVO: Detección específica de cuentas padre de familia 5000 existentes
     if (parsed.nivel1 === '5000' && parsed.nivel3 === '000' && parsed.nivel4 === '000' && 
         ['2000', '3000', '4000', '5000', '8000', '9000'].includes(parsed.nivel2)) {
-      console.log(`   ✅ Nivel 2: Padre específico de familia 5000 (${parsed.nivel2})`);
       return { level: 2, confidence: 1.0 }; // Padre específico de familia
     }
     
@@ -107,11 +102,9 @@ export class ImprovedHierarchyDetector {
         // Si es exactamente 2000, 3000, etc. es Level 2 (padre)
         if (parsed.nivel2 === '2000' || parsed.nivel2 === '3000' || parsed.nivel2 === '4000' || 
             parsed.nivel2 === '5000' || parsed.nivel2 === '8000' || parsed.nivel2 === '9000') {
-          console.log(`   ✅ Nivel 2: Padre específico de familia 5000 (${parsed.nivel2})`);
           return { level: 2, confidence: 1.0 }; // Padre específico de familia
         } else {
           // Si es 2001, 2002, etc. es Level 3 (sub-familia)
-          console.log(`   ✅ Nivel 3: Sub-familia de ${familyNumber}000`);
           return { level: 3, confidence: 0.9 }; // Sub-familia
         }
       }
@@ -119,22 +112,18 @@ export class ImprovedHierarchyDetector {
     
     // NUEVO: Detección de secuencias numéricas para jerarquías entre familias
     if (parsed.nivel3 === '000' && parsed.nivel4 === '000' && parsed.nivel2 !== '0000') {
-      console.log(`   🔍 Verificando secuencia numérica para: ${codigo}`);
       const sequenceAnalysis = this.analyzeNumericSequence(codigo, familyAccounts);
       if (sequenceAnalysis.isParent) {
-        console.log(`   ✅ Nivel 2: Padre por secuencia numérica`);
         return { level: 2, confidence: 0.9 }; // Padre por secuencia
       }
     }
     
     // Nivel 3: Sub-categorías (XXX-YYYY-ZZZ-000)
     if (parsed.nivel4 === '000' && parsed.nivel3 !== '000') {
-      console.log(`   ✅ Nivel 3: Sub-categoría`);
       return { level: 3, confidence: 0.8 }; // Sub-categoría
     }
     
     // Nivel 4: Cuentas detalle (XXX-YYYY-ZZZ-WWW)
-    console.log(`   ✅ Nivel 4: Cuenta detalle`);
     return { level: 4, confidence: 0.7 }; // Cuenta detalle
   }
 
@@ -152,9 +141,6 @@ export class ImprovedHierarchyDetector {
     const firstSegment = parsed.nivel1;
     const secondSegment = parsed.nivel2;
     
-    console.log(`🔍 ANALIZANDO SECUENCIA NUMÉRICA para: ${codigo}`);
-    console.log(`   Primer segmento: ${firstSegment}, Segundo segmento: ${secondSegment}`);
-    
     // Buscar todas las familias que comparten el primer segmento
     const relatedFamilies = new Set<string>();
     familyAccounts.forEach(accountCode => {
@@ -167,10 +153,7 @@ export class ImprovedHierarchyDetector {
       }
     });
     
-    console.log(`   Familias relacionadas encontradas: ${Array.from(relatedFamilies).join(', ')}`);
-    
     if (relatedFamilies.size < 2) {
-      console.log(`   ❌ Menos de 2 familias relacionadas, no es secuencia`);
       return { isParent: false, isChild: false, parentCode: null, confidence: 0 };
     }
     
@@ -180,10 +163,7 @@ export class ImprovedHierarchyDetector {
       .filter(n => !isNaN(n))
       .sort((a, b) => a - b);
     
-    console.log(`   Números de familia: ${familyNumbers.join(', ')}`);
-    
     if (familyNumbers.length < 2) {
-      console.log(`   ❌ Menos de 2 números válidos, no es secuencia`);
       return { isParent: false, isChild: false, parentCode: null, confidence: 0 };
     }
     
@@ -191,10 +171,7 @@ export class ImprovedHierarchyDetector {
     const currentNumber = parseInt(secondSegment);
     const isConsecutive = this.isConsecutiveSequence(familyNumbers);
     
-    console.log(`   Número actual: ${currentNumber}, ¿Es consecutivo?: ${isConsecutive}`);
-    
     if (!isConsecutive) {
-      console.log(`   ❌ No es secuencia consecutiva`);
       return { isParent: false, isChild: false, parentCode: null, confidence: 0 };
     }
     
@@ -202,11 +179,8 @@ export class ImprovedHierarchyDetector {
     const minNumber = Math.min(...familyNumbers);
     const maxNumber = Math.max(...familyNumbers);
     
-    console.log(`   Rango: ${minNumber} - ${maxNumber}, Número actual: ${currentNumber}`);
-    
     // Regla: El número base (menor) es el padre
     if (currentNumber === minNumber) {
-      console.log(`   ✅ ES PADRE de secuencia (número base: ${minNumber})`);
       return { 
         isParent: true, 
         isChild: false, 
@@ -216,7 +190,6 @@ export class ImprovedHierarchyDetector {
     } else if (currentNumber > minNumber && currentNumber <= maxNumber) {
       // Buscar el padre (número base)
       const parentCode = `${firstSegment}-${minNumber.toString().padStart(4, '0')}-000-000`;
-      console.log(`   ✅ ES HIJO de secuencia, padre: ${parentCode}`);
       return { 
         isParent: false, 
         isChild: true, 
@@ -225,7 +198,6 @@ export class ImprovedHierarchyDetector {
       };
     }
     
-    console.log(`   ❌ No cumple criterios de secuencia`);
     return { isParent: false, isChild: false, parentCode: null, confidence: 0 };
   }
 
@@ -340,11 +312,8 @@ export class ImprovedHierarchyDetector {
       case 4: // Cuenta detalle
         // PASO 1: Buscar padre directo nivel 3
         const expectedParentL3 = `${parsed.family}-${parsed.nivel3}-000`;
-        console.log(`🔍 DETERMINANDO PADRE para Level 4: ${codigo}`);
-        console.log(`   Buscando padre L3: ${expectedParentL3}, ¿Existe?: ${allAccounts.has(expectedParentL3)}`);
         
         if (allAccounts.has(expectedParentL3)) {
-          console.log(`   ✅ Asignando padre L3: ${expectedParentL3}`);
           return {
             parent: expectedParentL3,
             parentType: 'DIRECT',
@@ -375,7 +344,6 @@ export class ImprovedHierarchyDetector {
           // NO mapear 5000-1xxx a 5000-2000-000-000 - esto es incorrecto
           
           if (specificParentL2 && allAccounts.has(specificParentL2)) {
-            console.log(`   ✅ Asignando padre L2 específico existente: ${specificParentL2}`);
             warnings.push(`Padre L3 ${expectedParentL3} no existe, asignado a padre L2 específico ${specificParentL2}`);
             return {
               parent: specificParentL2,
@@ -387,10 +355,8 @@ export class ImprovedHierarchyDetector {
         
         // PASO 3: If not specific L2, try general L2 (family)
         const expectedParentL2 = `${parsed.family}-000-000`;
-        console.log(`   Buscando padre L2: ${expectedParentL2}, ¿Existe?: ${allAccounts.has(expectedParentL2)}`);
         
         if (allAccounts.has(expectedParentL2)) {
-          console.log(`   ✅ Asignando padre L2: ${expectedParentL2}`);
           warnings.push(`Padre L3 ${expectedParentL3} no existe, asignado a padre L2 ${expectedParentL2}`);
           return {
             parent: expectedParentL2,
@@ -401,10 +367,8 @@ export class ImprovedHierarchyDetector {
         
         // PASO 4: Si no existe padre L2, buscar padre L1 (cuenta principal)
         const parentL1ForL4 = `${parsed.nivel1}-0000-000-000`;
-        console.log(`   Buscando padre L1: ${parentL1ForL4}, ¿Existe?: ${allAccounts.has(parentL1ForL4)}`);
         
         if (allAccounts.has(parentL1ForL4)) {
-          console.log(`   ✅ Asignando padre L1: ${parentL1ForL4}`);
           warnings.push(`Padres intermedios no existen, asignado a cuenta principal ${parentL1ForL4}`);
           return {
             parent: parentL1ForL4,
@@ -414,7 +378,6 @@ export class ImprovedHierarchyDetector {
         }
         
         // PASO 5: Si no existe padre L1, será raíz
-        console.log(`   ❌ Sin padre, será raíz`);
         warnings.push(`Cuenta huérfana: no se encontraron padres en ningún nivel`);
         return {
           parent: null,
@@ -423,7 +386,6 @@ export class ImprovedHierarchyDetector {
         };
         
       case 3: // Sub-categoría
-        console.log(`🔍 DETERMINANDO PADRE para Level 3: ${codigo}`);
         
         // NUEVO: Para cuentas 5000, buscar padre específico de familia
         if (parsed.nivel1 === '5000' && parsed.nivel3 === '000' && parsed.nivel4 === '000') {
@@ -446,7 +408,6 @@ export class ImprovedHierarchyDetector {
           }
           
           if (specificParentL2 && allAccounts.has(specificParentL2)) {
-            console.log(`   ✅ Asignando padre L2 específico existente: ${specificParentL2}`);
             warnings.push(`Sub-familia ${codigo} asignada a padre L2 específico ${specificParentL2}`);
             return {
               parent: specificParentL2,
@@ -457,10 +418,8 @@ export class ImprovedHierarchyDetector {
         }
         
         const familyRootL3 = `${parsed.family}-000-000`;
-        console.log(`   Buscando raíz de familia: ${familyRootL3}, ¿Existe?: ${allAccounts.has(familyRootL3)}`);
         
         if (allAccounts.has(familyRootL3)) {
-          console.log(`   ✅ Asignando raíz de familia: ${familyRootL3}`);
           return {
             parent: familyRootL3,
             parentType: 'FAMILY_ROOT',
@@ -479,7 +438,6 @@ export class ImprovedHierarchyDetector {
         });
         
         if (otherLevel3InFamily) {
-          console.log(`   ✅ Agrupando con otro Level 3 en familia: ${otherLevel3InFamily}`);
           warnings.push(`Agrupado con otro Level 3 en familia: ${otherLevel3InFamily}`);
           return {
             parent: otherLevel3InFamily,
@@ -490,10 +448,8 @@ export class ImprovedHierarchyDetector {
         
         // NUEVO: Si no existe la raíz de familia, buscar padre de nivel 1
         const parentL1ForL3 = `${parsed.nivel1}-0000-000-000`;
-        console.log(`   Buscando padre L1: ${parentL1ForL3}, ¿Existe?: ${allAccounts.has(parentL1ForL3)}`);
         
         if (allAccounts.has(parentL1ForL3)) {
-          console.log(`   ✅ Asignando padre L1 (adopción): ${parentL1ForL3}`);
           warnings.push(`Padre de familia ${parsed.family} no existe, asignado a cuenta principal ${parentL1ForL3}`);
           return {
             parent: parentL1ForL3,
@@ -502,7 +458,6 @@ export class ImprovedHierarchyDetector {
           };
         }
         
-        console.log(`   ❌ Sin padre, será raíz`);
         warnings.push(`Familia ${parsed.family} sin cuenta raíz ni cuenta principal`);
         return {
           parent: null,
@@ -512,12 +467,9 @@ export class ImprovedHierarchyDetector {
         
       case 2: // Cuenta raíz de familia
         // NUEVO: Verificar si es parte de una secuencia numérica
-        console.log(`🔍 DETERMINANDO PADRE para Level 2: ${codigo}`);
         const sequenceAnalysis = this.analyzeNumericSequence(codigo, allAccounts);
-        console.log(`   Resultado secuencia:`, sequenceAnalysis);
         
         if (sequenceAnalysis.isChild && sequenceAnalysis.parentCode && allAccounts.has(sequenceAnalysis.parentCode)) {
-          console.log(`   ✅ Asignando padre por secuencia: ${sequenceAnalysis.parentCode}`);
           warnings.push(`Secuencia numérica detectada: ${codigo} es hijo de ${sequenceAnalysis.parentCode}`);
           return {
             parent: sequenceAnalysis.parentCode,
@@ -528,10 +480,8 @@ export class ImprovedHierarchyDetector {
         
         // Lógica original para cuentas raíz de familia
         const parentL1ForL2 = `${parsed.nivel1}-0000-000-000`;
-        console.log(`   Buscando padre L1: ${parentL1ForL2}, ¿Existe?: ${allAccounts.has(parentL1ForL2)}`);
         
         if (allAccounts.has(parentL1ForL2)) {
-          console.log(`   ✅ Asignando padre L1: ${parentL1ForL2}`);
           return {
             parent: parentL1ForL2,
             parentType: 'DIRECT',
@@ -550,7 +500,6 @@ export class ImprovedHierarchyDetector {
         });
         
         if (otherLevel2InFamily) {
-          console.log(`   ✅ Agrupando con otro Level 2 en familia: ${otherLevel2InFamily}`);
           warnings.push(`Agrupado con otro Level 2 en familia: ${otherLevel2InFamily}`);
           return {
             parent: otherLevel2InFamily,
@@ -559,7 +508,7 @@ export class ImprovedHierarchyDetector {
           };
         }
         
-        console.log(`   ❌ Sin padre, será raíz`);
+        warnings.push(`Sin padre, será raíz`);
         return {
           parent: null,
           parentType: 'ROOT',

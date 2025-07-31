@@ -189,6 +189,18 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
     console.log('=== DEBUG: Applying improved hierarchy ===')
     console.log('Input data length:', data.length)
     
+    // DIAGNOSTIC: Track all Egresos accounts from the start
+    const allEgresosAccounts = data.filter(row => row.Tipo === 'Egresos')
+    const totalEgresosAmount = allEgresosAccounts.reduce((sum, row) => sum + Math.abs(row.Monto), 0)
+    console.log('🔍 DIAGNOSTIC: Total Egresos accounts in input data:', allEgresosAccounts.length)
+    console.log('🔍 DIAGNOSTIC: Total Egresos amount in input data:', totalEgresosAmount)
+    console.log('🔍 DIAGNOSTIC: All Egresos accounts:', allEgresosAccounts.map(row => ({
+      codigo: row.Codigo,
+      concepto: row.Concepto,
+      monto: row.Monto,
+      tipo: row.Tipo
+    })))
+    
     // TEMPORARY: Test if improved hierarchy is causing issues
     let hierarchyResults: any[] = []
     let correctionReport: any = { corrections: [], summary: { totalAccounts: data.length, correctedAccounts: 0, familyBasedCorrections: 0, hybridCorrections: 0 } }
@@ -203,15 +215,16 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
       console.log('Hierarchy results length:', hierarchyResults.length)
       console.log('Enhanced data length:', enhancedData.length)
       
-      // NUEVO: Test simple para verificar la lógica de jerarquía
-      const testAccounts = ['5000-2000-000-000', '5000-3000-000-000', '5000-4000-000-000', '5000-5000-000-000', '5000-8000-000-000', '5000-9000-000-000', '5000-1001-001-001', '5000-1004-100-000']
-      console.log('🧪 TEST SIMPLE PARA CUENTAS REALES DEL DATASET')
-      improvedHierarchyDetector.testNumericSequenceDetection(testAccounts)
+      // DIAGNOSTIC: Check if any Egresos accounts were lost in enhancement
+      const enhancedEgresosAccounts = enhancedData.filter(row => row.Tipo === 'Egresos')
+      const enhancedEgresosAmount = enhancedEgresosAccounts.reduce((sum, row) => sum + Math.abs(row.Monto), 0)
+      console.log('🔍 DIAGNOSTIC: Enhanced Egresos accounts:', enhancedEgresosAccounts.length)
+      console.log('🔍 DIAGNOSTIC: Enhanced Egresos amount:', enhancedEgresosAmount)
       
-      // NUEVO: Test para cuenta con padre intermedio faltante
-      const testMissingParent = ['5000-1000-002-003', '5000-1004-100-000']
-      console.log('🧪 TEST PARA PADRE INTERMEDIO FALTANTE')
-      improvedHierarchyDetector.testNumericSequenceDetection(testMissingParent)
+      if (enhancedEgresosAccounts.length !== allEgresosAccounts.length) {
+        console.warn('🚨 DIAGNOSTIC: Enhanced data has different number of Egresos accounts!')
+        console.warn('Original:', allEgresosAccounts.length, 'Enhanced:', enhancedEgresosAccounts.length)
+      }
       
     } catch (hierarchyError) {
       console.error('Error with improved hierarchy, using fallback:', hierarchyError)
@@ -241,6 +254,10 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
     console.log('=== DEBUG: Creating accounts from enhanced data ===')
     console.log('Enhanced data sample:', enhancedData.slice(0, 3))
     
+    // DIAGNOSTIC: Track Egresos accounts during account creation
+    let egresosAccountsCreated = 0
+    let egresosAmountCreated = 0
+    
     enhancedData.forEach(row => {
       const level = row._hierarchyLevel || getAccountLevel(row.Codigo)
       const status = getClassificationStatus(row)
@@ -249,6 +266,13 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
       
       // ALL accounts can be classified - remove hierarchy blocking
       const isDirectlyClassified = status.status === 'classified'
+      
+      // DIAGNOSTIC: Track Egresos accounts
+      if (row.Tipo === 'Egresos') {
+        egresosAccountsCreated++
+        egresosAmountCreated += Math.abs(amount)
+        console.log(`🔍 DIAGNOSTIC: Creating Egresos account ${row.Codigo}: ${amount} (${row.Concepto})`)
+      }
       
       // DEBUG: Log sistemático para TODAS las cuentas de egresos (clasificadas y no clasificadas)
       if (row.Tipo === 'Egresos') {
@@ -267,6 +291,36 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
         })
       }
       
+      // NUEVO: DEBUG específico para cuentas de Ingresos (especialmente 4200 con montos negativos)
+      if (row.Tipo === 'Ingresos') {
+        console.log(`[DEBUG SIGN CONVENTION] ${row.Codigo}:`, {
+          concepto: row.Concepto,
+          montoOriginal: amount,
+          cargos: row.Cargos || 0,
+          abonos: row.Abonos || 0,
+          calcExcel: `${row.Abonos || 0} - ${row.Cargos || 0} = ${(row.Abonos || 0) - (row.Cargos || 0)}`,
+          signoResultante: amount > 0 ? 'POSITIVO (Ingreso real)' : 'NEGATIVO (Devolución)',
+          interpretacion: amount > 0 ? 'Se SUMA al total de Ingresos' : 'Se RESTA del total de Ingresos',
+          isClassified: isDirectlyClassified,
+          classifiedAmountWillBe: isDirectlyClassified ? amount : 0,
+          hierarchyLevel: level
+        })
+      }
+      
+      // SIMPLIFICADO: Usar el monto tal cual viene del elemento
+      let classifiedAmount = 0
+      let unclassifiedAmount = 0
+      
+      if (isDirectlyClassified) {
+        // Usar el monto exactamente como viene - sin modificaciones
+        classifiedAmount = amount
+        unclassifiedAmount = 0
+      } else {
+        // Para cuentas no clasificadas
+        classifiedAmount = 0
+        unclassifiedAmount = amount
+      }
+      
       accountMap.set(row.Codigo, {
         codigo: row.Codigo,
         concepto: row.Concepto,
@@ -279,18 +333,23 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
         level,
         children: [],
         isClassified: isDirectlyClassified,
-        classifiedAmount: isDirectlyClassified ? amount : 0,
-        unclassifiedAmount: isDirectlyClassified ? 0 : amount,
+        classifiedAmount: classifiedAmount,
+        unclassifiedAmount: unclassifiedAmount,
         validationStatus: 'unknown',
         validationMessage: '',
         originalRow: row
       })
     })
     
+    console.log('🔍 DIAGNOSTIC: Egresos accounts created in accountMap:', egresosAccountsCreated)
+    console.log('🔍 DIAGNOSTIC: Total Egresos amount in accountMap:', egresosAmountCreated)
+    
     // Build parent-child relationships using improved hierarchy
     console.log('=== DEBUG: Building parent-child relationships ===')
     let accountsWithParents = 0
     let accountsWithoutParents = 0
+    let egresosAccountsWithParents = 0
+    let egresosAccountsWithoutParents = 0
     
     accountMap.forEach(account => {
       const hierarchyResult = hierarchyResults.find(h => h.account.codigo === account.codigo)
@@ -298,10 +357,16 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
       
       if (parentCode) {
         accountsWithParents++
-        console.log(`Account ${account.codigo} has parent: ${parentCode}`)
+        if (account.tipo === 'Egresos') {
+          egresosAccountsWithParents++
+          console.log(`🔍 DIAGNOSTIC: Egresos account ${account.codigo} has parent: ${parentCode}`)
+        }
       } else {
         accountsWithoutParents++
-        console.log(`Account ${account.codigo} has NO parent`)
+        if (account.tipo === 'Egresos') {
+          egresosAccountsWithoutParents++
+          console.log(`🔍 DIAGNOSTIC: Egresos account ${account.codigo} has NO parent`)
+        }
       }
       
       if (parentCode && accountMap.has(parentCode)) {
@@ -371,6 +436,11 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
         if (!accountMap.has(parentCode)) {
           accountMap.set(parentCode, virtualParent)
           account.parent = virtualParent
+          
+          // DIAGNOSTIC: Track if virtual parent is for Egresos
+          if (account.tipo === 'Egresos') {
+            console.log(`🔍 DIAGNOSTIC: Created virtual parent ${parentCode} for Egresos account ${account.codigo}`)
+          }
         } else {
           // Si la cuenta real ya existe, usarla como padre
           const existingParent = accountMap.get(parentCode)!
@@ -379,6 +449,9 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
         }
       }
     })
+    
+    console.log('🔍 DIAGNOSTIC: Egresos accounts with parents:', egresosAccountsWithParents)
+    console.log('🔍 DIAGNOSTIC: Egresos accounts without parents:', egresosAccountsWithoutParents)
     
     // NUEVO: Calcular montos para cuentas virtuales después de crear toda la estructura
     accountMap.forEach(account => {
@@ -444,18 +517,17 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
         return
       }
       
-      // Calculate from children
+      // CORREGIDO: Calcular classifiedAmount y unclassifiedAmount sumando los hijos
       const childrenClassified = account.children.reduce((sum, child) => sum + child.classifiedAmount, 0)
       const childrenUnclassified = account.children.reduce((sum, child) => sum + child.unclassifiedAmount, 0)
       
       account.classifiedAmount = childrenClassified
       account.unclassifiedAmount = childrenUnclassified
       
-      // Validation logic
+      // Validation logic - compare against the account's own monto
       const totalAmount = account.monto
       const classifiedAmount = account.classifiedAmount
-      const expectedClassifiedAmount = totalAmount < 0 ? Math.abs(classifiedAmount) * -1 : Math.abs(classifiedAmount)
-      const unclassifiedAmount = Math.abs(totalAmount - expectedClassifiedAmount)
+      const unclassifiedAmount = Math.abs(totalAmount - classifiedAmount)
       const tolerance = 1.00
       
       if (account.isClassified) {
@@ -463,10 +535,10 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
         account.validationMessage = `Clasificado directamente: ${formatCurrencyWithContext(account.monto, account.tipo, account.codigo, account.concepto)}`
       } else if (unclassifiedAmount <= tolerance) {
         account.validationStatus = 'valid'
-        account.validationMessage = `Válido: ${formatCurrencyWithContext(expectedClassifiedAmount, account.tipo, account.codigo, account.concepto)} clasificado`
+        account.validationMessage = `Válido: ${formatCurrencyWithContext(classifiedAmount, account.tipo, account.codigo, account.concepto)} clasificado`
       } else if (classifiedAmount !== 0) {
         account.validationStatus = 'partial'
-        account.validationMessage = `Parcial: ${formatCurrencyWithContext(expectedClassifiedAmount, account.tipo, account.codigo, account.concepto)} de ${formatCurrencyWithContext(totalAmount, account.tipo, account.codigo, account.concepto)} (Faltan: ${formatCurrencyWithContext(unclassifiedAmount, account.tipo, account.codigo, account.concepto)})`
+        account.validationMessage = `Parcial: ${formatCurrencyWithContext(classifiedAmount, account.tipo, account.codigo, account.concepto)} de ${formatCurrencyWithContext(totalAmount, account.tipo, account.codigo, account.concepto)} (Faltan: ${formatCurrencyWithContext(unclassifiedAmount, account.tipo, account.codigo, account.concepto)})`
       } else {
         account.validationStatus = 'invalid'
         account.validationMessage = `Error contable: ${formatCurrencyWithContext(unclassifiedAmount, account.tipo, account.codigo, account.concepto)} sin clasificar de ${formatCurrencyWithContext(totalAmount, account.tipo, account.codigo, account.concepto)}`
@@ -493,9 +565,44 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
     console.log('Top level accounts found:', topLevelAccounts.length)
     console.log('Top level account codes:', topLevelAccounts.map(acc => acc.codigo))
     
+    // DIAGNOSTIC: Check final Egresos representation in top-level accounts
+    const finalEgresosAccounts: HierarchicalAccount[] = []
+    const collectEgresosAccounts = (accounts: HierarchicalAccount[]) => {
+      accounts.forEach(account => {
+        if (account.tipo === 'Egresos') {
+          finalEgresosAccounts.push(account)
+        }
+        collectEgresosAccounts(account.children)
+      })
+    }
+    collectEgresosAccounts(topLevelAccounts)
+    
+    const finalEgresosAmount = finalEgresosAccounts.reduce((sum, acc) => sum + Math.abs(acc.classifiedAmount), 0)
+    console.log('🔍 DIAGNOSTIC: Final Egresos accounts in hierarchy:', finalEgresosAccounts.length)
+    console.log('🔍 DIAGNOSTIC: Final Egresos classified amount in hierarchy:', finalEgresosAmount)
+    console.log('🔍 DIAGNOSTIC: Final Egresos accounts details:', finalEgresosAccounts.map(acc => ({
+      codigo: acc.codigo,
+      concepto: acc.concepto,
+      monto: acc.monto,
+      classifiedAmount: acc.classifiedAmount,
+      isClassified: acc.isClassified
+    })))
+    
+    console.log('🔍 DIAGNOSTIC: DISCREPANCY ANALYSIS:')
+    console.log(`Expected total from validation: $17,368,710.28`)
+    console.log(`Actual total in hierarchy: ${finalEgresosAmount}`)
+    console.log(`Missing amount: ${17368710.28 - finalEgresosAmount}`)
+    
     // Safety check: if no top-level accounts, return all accounts as flat structure
     if (topLevelAccounts.length === 0) {
       console.warn('No top-level accounts found, returning flat structure')
+      
+      // DIAGNOSTIC: Check what's in flat structure
+      const flatEgresosAccounts = Array.from(accountMap.values()).filter(acc => acc.tipo === 'Egresos')
+      const flatEgresosAmount = flatEgresosAccounts.reduce((sum, acc) => sum + Math.abs(acc.classifiedAmount), 0)
+      console.log('🔍 DIAGNOSTIC: Flat structure Egresos accounts:', flatEgresosAccounts.length)
+      console.log('🔍 DIAGNOSTIC: Flat structure Egresos amount:', flatEgresosAmount)
+      
       return Array.from(accountMap.values())
         .sort((a, b) => a.codigo.localeCompare(b.codigo))
     }
@@ -526,6 +633,20 @@ const buildHierarchicalStructureFallback = (data: DebugDataRow[]): HierarchicalA
     
     const isDirectlyClassified = status.status === 'classified'
     
+    // SIMPLIFICADO: Usar el monto tal cual viene del elemento
+    let classifiedAmount = 0
+    let unclassifiedAmount = 0
+    
+    if (isDirectlyClassified) {
+      // Usar el monto exactamente como viene - sin modificaciones
+      classifiedAmount = amount
+      unclassifiedAmount = 0
+    } else {
+      // Para cuentas no clasificadas
+      classifiedAmount = 0
+      unclassifiedAmount = amount
+    }
+    
     accountMap.set(row.Codigo, {
       codigo: row.Codigo,
       concepto: row.Concepto,
@@ -538,8 +659,8 @@ const buildHierarchicalStructureFallback = (data: DebugDataRow[]): HierarchicalA
       level,
       children: [],
       isClassified: isDirectlyClassified,
-      classifiedAmount: isDirectlyClassified ? amount : 0,
-      unclassifiedAmount: isDirectlyClassified ? 0 : amount,
+      classifiedAmount: classifiedAmount,
+      unclassifiedAmount: unclassifiedAmount,
       validationStatus: 'unknown',
       validationMessage: '',
       originalRow: row
@@ -588,18 +709,17 @@ const buildHierarchicalStructureFallback = (data: DebugDataRow[]): HierarchicalA
       return
     }
     
-    // Calculate from children
+    // CORREGIDO: Calcular classifiedAmount y unclassifiedAmount sumando los hijos
     const childrenClassified = account.children.reduce((sum, child) => sum + child.classifiedAmount, 0)
     const childrenUnclassified = account.children.reduce((sum, child) => sum + child.unclassifiedAmount, 0)
     
     account.classifiedAmount = childrenClassified
     account.unclassifiedAmount = childrenUnclassified
     
-    // Validation logic
+    // Validation logic - compare against the account's own monto
     const totalAmount = account.monto
     const classifiedAmount = account.classifiedAmount
-    const expectedClassifiedAmount = totalAmount < 0 ? Math.abs(classifiedAmount) * -1 : Math.abs(classifiedAmount)
-    const unclassifiedAmount = Math.abs(totalAmount - expectedClassifiedAmount)
+    const unclassifiedAmount = Math.abs(totalAmount - classifiedAmount)
     const tolerance = 1.00
     
     if (account.isClassified) {
@@ -607,10 +727,10 @@ const buildHierarchicalStructureFallback = (data: DebugDataRow[]): HierarchicalA
       account.validationMessage = `Clasificado directamente: ${formatCurrencyWithContext(account.monto, account.tipo, account.codigo, account.concepto)}`
     } else if (unclassifiedAmount <= tolerance) {
       account.validationStatus = 'valid'
-      account.validationMessage = `Válido: ${formatCurrencyWithContext(expectedClassifiedAmount, account.tipo, account.codigo, account.concepto)} clasificado`
+      account.validationMessage = `Válido: ${formatCurrencyWithContext(classifiedAmount, account.tipo, account.codigo, account.concepto)} clasificado`
     } else if (classifiedAmount !== 0) {
       account.validationStatus = 'partial'
-      account.validationMessage = `Parcial: ${formatCurrencyWithContext(expectedClassifiedAmount, account.tipo, account.codigo, account.concepto)} de ${formatCurrencyWithContext(totalAmount, account.tipo, account.codigo, account.concepto)} (Faltan: ${formatCurrencyWithContext(unclassifiedAmount, account.tipo, account.codigo, account.concepto)})`
+      account.validationMessage = `Parcial: ${formatCurrencyWithContext(classifiedAmount, account.tipo, account.codigo, account.concepto)} de ${formatCurrencyWithContext(totalAmount, account.tipo, account.codigo, account.concepto)} (Faltan: ${formatCurrencyWithContext(unclassifiedAmount, account.tipo, account.codigo, account.concepto)})`
     } else {
       account.validationStatus = 'invalid'
       account.validationMessage = `Error contable: ${formatCurrencyWithContext(unclassifiedAmount, account.tipo, account.codigo, account.concepto)} sin clasificar de ${formatCurrencyWithContext(totalAmount, account.tipo, account.codigo, account.concepto)}`
@@ -992,16 +1112,6 @@ export default function EnhancedDebugModal({
   const hierarchicalAccounts = useMemo(() => {
     console.log('=== DEBUG: Building hierarchical structure ===')
     console.log('Input data length:', data.length)
-    
-    // NUEVO: Test simple para verificar la lógica de jerarquía
-    const testAccounts = ['5000-2000-000-000', '5000-3000-000-000', '5000-4000-000-000', '5000-5000-000-000', '5000-8000-000-000', '5000-9000-000-000', '5000-1001-001-001', '5000-1004-100-000']
-    console.log('🧪 TEST SIMPLE PARA CUENTAS REALES DEL DATASET')
-    improvedHierarchyDetector.testNumericSequenceDetection(testAccounts)
-    
-    // NUEVO: Test para cuenta con padre intermedio faltante
-    const testMissingParent = ['5000-1000-002-003', '5000-1004-100-000']
-    console.log('🧪 TEST PARA PADRE INTERMEDIO FALTANTE')
-    improvedHierarchyDetector.testNumericSequenceDetection(testMissingParent)
     
     return buildHierarchicalStructure(data)
   }, [data])

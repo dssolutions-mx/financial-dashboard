@@ -1639,21 +1639,17 @@ function processBalanzaData(data: BalanzaRow[]): DebugDataRow[] {
       subCategoria = classification.sub_clasificacion_gerencia || 'Sin Subcategoría';
       clasificacion = classification.sub_sub_clasificacion_gerencia || 'Sin Clasificación';
 
-      // Determine Monto using consistent logic for all account types
-      if (tipo === 'Ingresos') {
-        monto = abonos - cargos; // Net income: Abonos minus any returns/adjustments in Cargos
-      } else if (tipo === 'Egresos') {
-        monto = cargos - abonos; // Net expense: Cargos minus any refunds/adjustments in Abonos
-      } else {
-        // Handle cases where tipo might be different or undefined
-        monto = abonos - cargos; // Default logic for undefined types
-      }
+      // CORREGIDO: Usar convención contable estándar uniforme
+      // Monto = Abonos - Cargos (siempre, independiente del tipo)
+      // - Positivo: cuenta con saldo acreedor (típico ingresos/pasivos)
+      // - Negativo: cuenta con saldo deudor (típico gastos/activos)
+      monto = abonos - cargos;
 
     } else {
       // If no classification found by Codigo, try by Concepto?
       // For now, default classification applies
       tipo = 'Indefinido'; // Mark as Indefinido if no match
-      monto = abonos - cargos; // Default calculation if type is unknown
+      monto = abonos - cargos; // Standard accounting convention
       // Keep default 'Sin Categoría', 'Sin Subcategoría', 'Sin Clasificación'
     }
 
