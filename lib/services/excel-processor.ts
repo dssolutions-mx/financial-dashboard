@@ -1351,19 +1351,19 @@ const UNIFIED_CLASSIFICATIONS: UnifiedClassification[] = [
     "categoria_ingresos": "Otros gastos Administrativos",
     "codigo_ingresos": "4200-1000-000-000",
     "concepto_ingresos": "Dev y Desc S/Venta Silao",
-    "concepto_gerencia": "Otros gastos Administrativos",
-    "clasificacion_gerencia": "Egresos",
-    "sub_clasificacion_gerencia": "Otros",
-    "sub_sub_clasificacion_gerencia": "Otros"
+    "concepto_gerencia": "Ventas",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Ventas Concreto",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
   },
   {
     "categoria_ingresos": "Otros gastos Administrativos",
     "codigo_ingresos": "4200-3000-000-000",
     "concepto_ingresos": "Dev y Desc S/Venta Tijuana P3",
-    "concepto_gerencia": "Otros gastos Administrativos",
-    "clasificacion_gerencia": "Egresos",
-    "sub_clasificacion_gerencia": "Otros",
-    "sub_sub_clasificacion_gerencia": "Otros"
+    "concepto_gerencia": "Ventas",
+    "clasificacion_gerencia": "Ingresos",
+    "sub_clasificacion_gerencia": "Ventas Concreto",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
   },
   {
     "categoria_ingresos": "Agua",
