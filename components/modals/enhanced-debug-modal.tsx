@@ -38,7 +38,7 @@ import {
   getClasificacionesForSubCategoria,
   getCategoria1ForClasificacion,
   suggestClassification
-} from "@/lib/services/classification-service"
+} from "@/lib/services/classification-service-client"
 import { ValidationSummary } from "@/lib/services/validation-service"
 import { improvedHierarchyDetector } from "@/lib/services/enhanced-hierarchy-detector.service"
 
@@ -593,6 +593,72 @@ const buildHierarchicalStructure = (data: DebugDataRow[]): HierarchicalAccount[]
     console.log(`Actual total in hierarchy: ${finalEgresosAmount}`)
     console.log(`Missing amount: ${17368710.28 - finalEgresosAmount}`)
     
+    // ENHANCED: Ensure no accounts are lost - add missing accounts as top-level
+    const accountsInHierarchy = new Set<string>()
+    const collectHierarchyAccounts = (accounts: HierarchicalAccount[]) => {
+      accounts.forEach(account => {
+        accountsInHierarchy.add(account.codigo)
+        collectHierarchyAccounts(account.children)
+      })
+    }
+    collectHierarchyAccounts(topLevelAccounts)
+    
+    const missingAccounts = enhancedData.filter(row => 
+      !accountsInHierarchy.has(row.Codigo) && 
+      row.Monto !== 0  // PRESERVE: Don't recover zero amount accounts - this filter is correct
+    )
+    if (missingAccounts.length > 0) {
+      console.warn('🚨 ACCOUNTS LOST IN HIERARCHY BUILDING:', missingAccounts.length)
+      console.warn('Lost accounts:', missingAccounts.map(row => ({
+        codigo: row.Codigo,
+        concepto: row.Concepto,
+        tipo: row.Tipo,
+        monto: row.Monto
+      })))
+      
+      // Add missing accounts as additional top-level accounts (excluding zero amounts)
+      missingAccounts.forEach(row => {
+        const level = row._hierarchyLevel || getAccountLevel(row.Codigo)
+        const status = getClassificationStatus(row)
+        const amount = row.Monto
+        
+        const isDirectlyClassified = status.status === 'classified'
+        
+        let classifiedAmount = 0
+        let unclassifiedAmount = 0
+        
+        if (isDirectlyClassified) {
+          classifiedAmount = amount
+          unclassifiedAmount = 0
+        } else {
+          classifiedAmount = 0
+          unclassifiedAmount = amount
+        }
+        
+        const missingAccount: HierarchicalAccount = {
+          codigo: row.Codigo,
+          concepto: row.Concepto,
+          monto: amount,
+          tipo: row.Tipo || 'Indefinido',
+          categoria1: row['Categoria 1'] || 'Sin Categoría',
+          subCategoria: row['Sub categoria'] || 'Sin Subcategoría',
+          clasificacion: row.Clasificacion || 'Sin Clasificación',
+          planta: row.Planta,
+          level,
+          children: [],
+          isClassified: isDirectlyClassified,
+          classifiedAmount: classifiedAmount,
+          unclassifiedAmount: unclassifiedAmount,
+          validationStatus: isDirectlyClassified ? 'valid' : 'invalid',
+          validationMessage: isDirectlyClassified ? 'Clasificado correctamente' : 'Requiere clasificación',
+          originalRow: row
+        }
+        
+        topLevelAccounts.push(missingAccount)
+        console.log(`🔧 RECOVERED ACCOUNT: ${row.Codigo} - ${row.Concepto}`)
+      })
+    }
+
     // Safety check: if no top-level accounts, return all accounts as flat structure
     if (topLevelAccounts.length === 0) {
       console.warn('No top-level accounts found, returning flat structure')
@@ -743,8 +809,8 @@ const buildHierarchicalStructureFallback = (data: DebugDataRow[]): HierarchicalA
 }
 
 // Inline editor component
-const InlineEditor = React.memo(({ 
-  account, 
+const InlineEditor = React.memo(({
+  account,
   onUpdate,
   onCancel
 }: { 
@@ -753,26 +819,54 @@ const InlineEditor = React.memo(({
   onCancel: () => void
 }) => {
   const [localRow, setLocalRow] = useState<DebugDataRow>({ ...account.originalRow })
+  const [categorias1, setCategorias1] = useState<string[]>(['Sin Categoría'])
+  const [subCategorias, setSubCategorias] = useState<string[]>(['Sin Subcategoría'])
+  const [clasificaciones, setClasificaciones] = useState<string[]>(['Sin Clasificación'])
   
   const correctType = localRow.Tipo && localRow.Tipo !== "Indefinido" 
     ? localRow.Tipo 
     : localRow.Codigo.startsWith('4') ? 'Ingresos' : 'Egresos'
 
-  const subCategorias = useMemo(() => 
-    getSubCategoriasForTipo(correctType || ""), [correctType]
-  )
-  
-  const categorias1 = useMemo(() => 
-    getCategoria1ForClasificacion(correctType || "", localRow['Sub categoria'] || "", localRow.Clasificacion || ""), 
-    [correctType, localRow['Sub categoria'], localRow.Clasificacion]
-  )
+  // Load categorias1 when tipo changes
+  useEffect(() => {
+    if (correctType && correctType !== "Indefinido") {
+      getSubCategoriasForTipo(correctType)
+        .then(setCategorias1)
+        .catch(() => setCategorias1(['Sin Categoría']))
+    } else {
+      setCategorias1(['Sin Categoría'])
+    }
+  }, [correctType])
+
+  // Load sub categorias when categoria1 changes
+  useEffect(() => {
+    if (correctType && localRow['Categoria 1'] && localRow['Categoria 1'] !== "Sin Categoría") {
+      getClasificacionesForSubCategoria(correctType, localRow['Categoria 1'])
+        .then(setSubCategorias)
+        .catch(() => setSubCategorias(['Sin Subcategoría']))
+    } else {
+      setSubCategorias(['Sin Subcategoría'])
+    }
+  }, [correctType, localRow['Categoria 1']])
+
+  // Load clasificaciones when sub categoria changes
+  useEffect(() => {
+    if (correctType && localRow['Categoria 1'] && localRow['Sub categoria'] && 
+        localRow['Categoria 1'] !== "Sin Categoría" && localRow['Sub categoria'] !== "Sin Subcategoría") {
+      getCategoria1ForClasificacion(correctType, localRow['Categoria 1'], localRow['Sub categoria'])
+        .then(setClasificaciones)
+        .catch(() => setClasificaciones(['Sin Clasificación']))
+    } else {
+      setClasificaciones(['Sin Clasificación'])
+    }
+  }, [correctType, localRow['Categoria 1'], localRow['Sub categoria']])
 
   const handleQuickSave = useCallback(() => {
     onUpdate({
       Tipo: localRow.Tipo,
+      'Categoria 1': localRow['Categoria 1'],
       'Sub categoria': localRow['Sub categoria'],
-      Clasificacion: localRow.Clasificacion,
-      'Categoria 1': localRow['Categoria 1']
+      Clasificacion: localRow.Clasificacion
     })
   }, [localRow, onUpdate])
 
@@ -780,14 +874,14 @@ const InlineEditor = React.memo(({
     const updates: Partial<DebugDataRow> = { [field]: value }
     
     if (field === 'Tipo') {
+      updates['Categoria 1'] = 'Sin Categoría'
       updates['Sub categoria'] = 'Sin Subcategoría'
       updates.Clasificacion = 'Sin Clasificación'
-      updates['Categoria 1'] = 'Sin Categoría'
+    } else if (field === 'Categoria 1') {
+      updates['Sub categoria'] = 'Sin Subcategoría'
+      updates.Clasificacion = 'Sin Clasificación'
     } else if (field === 'Sub categoria') {
       updates.Clasificacion = 'Sin Clasificación'
-      updates['Categoria 1'] = 'Sin Categoría'
-    } else if (field === 'Clasificacion') {
-      updates['Categoria 1'] = 'Sin Categoría'
     }
     
     setLocalRow(prev => ({ ...prev, ...updates }))
@@ -822,9 +916,25 @@ const InlineEditor = React.memo(({
         </Select>
         
         <Select 
+          value={localRow['Categoria 1']} 
+          onValueChange={(value) => handleFieldChange('Categoria 1', value)}
+          disabled={!correctType || correctType === "Indefinido"}
+        >
+          <SelectTrigger className="h-8">
+            <SelectValue placeholder="Categoría 1" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Sin Categoría">Sin Categoría</SelectItem>
+            {categorias1.map(cat => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        <Select 
           value={localRow['Sub categoria']} 
           onValueChange={(value) => handleFieldChange('Sub categoria', value)}
-          disabled={!correctType || correctType === "Indefinido"}
+          disabled={!localRow['Categoria 1'] || localRow['Categoria 1'] === "Sin Categoría"}
         >
           <SelectTrigger className="h-8">
             <SelectValue placeholder="Sub categoría" />
@@ -847,24 +957,8 @@ const InlineEditor = React.memo(({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Sin Clasificación">Sin Clasificación</SelectItem>
-            {getClasificacionesForSubCategoria(correctType || "", localRow['Sub categoria'] || "").map(clasif => (
+            {clasificaciones.map(clasif => (
               <SelectItem key={clasif} value={clasif}>{clasif}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        <Select 
-          value={localRow['Categoria 1']} 
-          onValueChange={(value) => handleFieldChange('Categoria 1', value)}
-          disabled={!localRow.Clasificacion || localRow.Clasificacion === "Sin Clasificación"}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue placeholder="Categoría 1" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Sin Categoría">Sin Categoría</SelectItem>
-            {categorias1.map(cat => (
-              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -1107,6 +1201,7 @@ export default function EnhancedDebugModal({
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null)
   const [selectedFilter, setSelectedFilter] = useState<string>('all')
+  const [viewMode, setViewMode] = useState<'hierarchy' | 'flat'>('hierarchy')
 
   // Build hierarchical structure
   const hierarchicalAccounts = useMemo(() => {
@@ -1116,76 +1211,185 @@ export default function EnhancedDebugModal({
     return buildHierarchicalStructure(data)
   }, [data])
 
-  // Filter accounts based on search and filter
-  const filteredAccounts = useMemo(() => {
-    console.log('=== DEBUG: Filtering accounts ===')
-    console.log('Initial hierarchical accounts:', hierarchicalAccounts.length)
-    console.log('Search term:', searchTerm)
-    console.log('Selected filter:', selectedFilter)
-    
-    let filtered = hierarchicalAccounts
-
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase()
-      filtered = filtered.filter(account => 
-        account.concepto.toLowerCase().includes(searchLower) ||
-        account.codigo.toLowerCase().includes(searchLower)
-      )
-      console.log('After search filter:', filtered.length)
-    }
-
-    if (selectedFilter !== 'all') {
-      filtered = filtered.filter(account => {
-        switch (selectedFilter) {
-          case 'invalid':
-            return account.validationStatus === 'invalid'
-          case 'partial':
-            return account.validationStatus === 'partial'
-          case 'valid':
-            return account.validationStatus === 'valid'
-          case 'control':
-            return isHierarchyRow(account.codigo)
-          case 'unclassified':
-            return account.classifiedAmount === 0 && !isHierarchyRow(account.codigo)
-          default:
-            return true
-        }
-      })
-      console.log('After status filter:', filtered.length)
-    }
-
-    console.log('Final filtered accounts:', filtered.length)
-    console.log('Filtered account codes:', filtered.map(acc => acc.codigo))
-    
-    return filtered
-  }, [hierarchicalAccounts, searchTerm, selectedFilter])
-
-  // Calculate overall statistics
-  const stats = useMemo(() => {
-    const allAccounts: HierarchicalAccount[] = []
+  // Create flat list of all accounts for search and verification
+  const allAccountsFlat = useMemo(() => {
+    const flatAccounts: HierarchicalAccount[] = []
     
     const collectAccounts = (accounts: HierarchicalAccount[]) => {
       accounts.forEach(account => {
-        allAccounts.push(account)
+        flatAccounts.push(account)
         collectAccounts(account.children)
       })
     }
     
     collectAccounts(hierarchicalAccounts)
     
-    const detailAccounts = allAccounts.filter(acc => isDetailAccount(acc.codigo))
-    const aggregationAccounts = allAccounts.filter(acc => !isDetailAccount(acc.codigo))
+    console.log('=== DEBUG: Account verification ===')
+    console.log('Original data count:', data.length)
+    console.log('Hierarchical top-level count:', hierarchicalAccounts.length)
+    console.log('All accounts in hierarchy count:', flatAccounts.length)
+    
+    // Check for missing accounts
+    const hierarchicalCodes = new Set(flatAccounts.map(acc => acc.codigo))
+    const originalCodes = new Set(data.map(row => row.Codigo))
+    const missingInHierarchy = data.filter(row => !hierarchicalCodes.has(row.Codigo))
+    const extraInHierarchy = flatAccounts.filter(acc => !originalCodes.has(acc.codigo))
+    
+    if (missingInHierarchy.length > 0) {
+      console.warn('🚨 MISSING ACCOUNTS IN HIERARCHY:', missingInHierarchy.map(row => ({
+        codigo: row.Codigo,
+        concepto: row.Concepto,
+        tipo: row.Tipo,
+        monto: row.Monto
+      })))
+    }
+    
+    if (extraInHierarchy.length > 0) {
+      console.warn('🚨 EXTRA ACCOUNTS IN HIERARCHY:', extraInHierarchy.map(acc => ({
+        codigo: acc.codigo,
+        concepto: acc.concepto,
+        isVirtual: acc.originalRow.id?.startsWith('virtual-')
+      })))
+    }
+    
+    // Check for specific accounts the user mentioned
+    const userMentionedAccounts = ['5000-1000-003-000', '5000-1000-002-000']
+    userMentionedAccounts.forEach(codigo => {
+      const inOriginal = originalCodes.has(codigo)
+      const inHierarchy = hierarchicalCodes.has(codigo)
+      console.log(`🔍 Account ${codigo}: Original=${inOriginal}, Hierarchy=${inHierarchy}`)
+      
+      if (inOriginal && !inHierarchy) {
+        const originalAccount = data.find(row => row.Codigo === codigo)
+        console.error(`🚨 LOST ACCOUNT ${codigo}:`, originalAccount)
+      }
+    })
+    
+    return flatAccounts
+  }, [hierarchicalAccounts, data])
+
+  // Enhanced filter logic that works on all accounts
+  const filteredAccounts = useMemo(() => {
+    console.log('=== DEBUG: Filtering accounts ===')
+    console.log('View mode:', viewMode)
+    console.log('Search term:', searchTerm)
+    console.log('Selected filter:', selectedFilter)
+    
+    let accountsToFilter = viewMode === 'flat' ? allAccountsFlat : hierarchicalAccounts
+    
+    // Apply search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase()
+      
+      if (viewMode === 'flat') {
+        accountsToFilter = allAccountsFlat.filter(account => 
+          account.concepto.toLowerCase().includes(searchLower) ||
+          account.codigo.toLowerCase().includes(searchLower)
+        )
+      } else {
+        // For hierarchy view, include top-level accounts that contain matching children
+        const matchingAccountCodes = new Set(
+          allAccountsFlat
+            .filter(account => 
+              account.concepto.toLowerCase().includes(searchLower) ||
+              account.codigo.toLowerCase().includes(searchLower)
+            )
+            .map(account => account.codigo)
+        )
+        
+        const includeAccount = (account: HierarchicalAccount): boolean => {
+          // Include if account itself matches
+          if (matchingAccountCodes.has(account.codigo)) return true
+          
+          // Include if any child matches
+          return account.children.some(child => includeAccount(child))
+        }
+        
+        accountsToFilter = hierarchicalAccounts.filter(includeAccount)
+        
+        // Expand all accounts that contain matches for better visibility
+        const newExpanded = new Set(expandedAccounts)
+        const expandMatching = (accounts: HierarchicalAccount[]) => {
+          accounts.forEach(account => {
+            if (account.children.some(child => includeAccount(child))) {
+              newExpanded.add(account.codigo)
+              expandMatching(account.children)
+            }
+          })
+        }
+        expandMatching(accountsToFilter)
+        setExpandedAccounts(newExpanded)
+      }
+      
+      console.log('After search filter:', accountsToFilter.length)
+    }
+
+    // Apply status filter
+    if (selectedFilter !== 'all') {
+      if (viewMode === 'flat') {
+        accountsToFilter = accountsToFilter.filter(account => {
+          switch (selectedFilter) {
+            case 'invalid':
+              return account.validationStatus === 'invalid'
+            case 'partial':
+              return account.validationStatus === 'partial'
+            case 'valid':
+              return account.validationStatus === 'valid'
+            case 'control':
+              return isHierarchyRow(account.codigo)
+            case 'unclassified':
+              return account.classifiedAmount === 0 && !isHierarchyRow(account.codigo)
+            case 'user_mentioned':
+              return ['5000-1000-003-000', '5000-1000-002-000'].includes(account.codigo)
+            default:
+              return true
+          }
+        })
+      } else {
+        accountsToFilter = accountsToFilter.filter(account => {
+          switch (selectedFilter) {
+            case 'invalid':
+              return account.validationStatus === 'invalid'
+            case 'partial':
+              return account.validationStatus === 'partial'
+            case 'valid':
+              return account.validationStatus === 'valid'
+            case 'control':
+              return isHierarchyRow(account.codigo)
+            case 'unclassified':
+              return account.classifiedAmount === 0 && !isHierarchyRow(account.codigo)
+            case 'user_mentioned':
+              return ['5000-1000-003-000', '5000-1000-002-000'].includes(account.codigo)
+            default:
+              return true
+          }
+        })
+      }
+      console.log('After status filter:', accountsToFilter.length)
+    }
+
+    console.log('Final filtered accounts:', accountsToFilter.length)
+    
+    return accountsToFilter
+  }, [hierarchicalAccounts, allAccountsFlat, searchTerm, selectedFilter, viewMode, expandedAccounts])
+
+  // Calculate overall statistics
+  const stats = useMemo(() => {
+    const detailAccounts = allAccountsFlat.filter(acc => isDetailAccount(acc.codigo))
+    const aggregationAccounts = allAccountsFlat.filter(acc => !isDetailAccount(acc.codigo))
     
     return {
-      totalAccounts: allAccounts.length,
+      totalAccounts: allAccountsFlat.length,
       detailAccounts: detailAccounts.length,
       aggregationAccounts: aggregationAccounts.length,
       classifiedDetails: detailAccounts.filter(acc => acc.isClassified).length,
       validAggregations: aggregationAccounts.filter(acc => acc.validationStatus === 'valid').length,
       totalClassifiedAmount: detailAccounts.reduce((sum, acc) => sum + acc.classifiedAmount, 0),
-      totalUnclassifiedAmount: detailAccounts.reduce((sum, acc) => sum + acc.unclassifiedAmount, 0)
+      totalUnclassifiedAmount: detailAccounts.reduce((sum, acc) => sum + acc.unclassifiedAmount, 0),
+      originalDataCount: data.length,
+      missingAccounts: data.length - allAccountsFlat.length
     }
-  }, [hierarchicalAccounts])
+  }, [allAccountsFlat, data])
 
   const handleAccountUpdate = useCallback(async (codigo: string, updates: Partial<DebugDataRow>) => {
     const newData = data.map(row => {
@@ -1239,52 +1443,75 @@ export default function EnhancedDebugModal({
                 <Target className="h-5 w-5 text-blue-600" />
                 <span>Validación de Valores Clasificados</span>
               </div>
-              <Badge variant={stats.validAggregations === stats.aggregationAccounts ? "default" : "destructive"}>
-                {stats.validAggregations}/{stats.aggregationAccounts} Válidos
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={stats.validAggregations === stats.aggregationAccounts ? "default" : "destructive"}>
+                  {stats.validAggregations}/{stats.aggregationAccounts} Válidos
+                </Badge>
+                {stats.missingAccounts > 0 && (
+                  <Badge variant="destructive">
+                    ⚠️ {stats.missingAccounts} Perdidos
+                  </Badge>
+                )}
+              </div>
             </DialogTitle>
             <DialogDescription>
-              Verificar que los valores clasificados coincidan con los valores principales para llegar al Total de Control
+              Verificar que los valores clasificados coincidan con los valores principales. 
+              Total: {stats.originalDataCount} originales → {stats.totalAccounts} en jerarquía
             </DialogDescription>
           </DialogHeader>
 
-          {/* Controls */}
+          {/* Enhanced Controls */}
           <div className="flex flex-col md:flex-row gap-3 mb-4 p-4 md:p-0">
-              <div className="flex-1">
-                <div className="relative">
+            <div className="flex-1">
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
+                <Input
                   placeholder="Buscar cuenta o concepto..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
-                  />
-                </div>
+                />
               </div>
-              <Select value={selectedFilter} onValueChange={setSelectedFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">📋 Todas las cuentas</SelectItem>
-                  <SelectItem value="invalid">❌ Con discrepancias</SelectItem>
-                  <SelectItem value="partial">⚠️ Parcialmente válidas</SelectItem>
-                  <SelectItem value="valid">✅ Válidas</SelectItem>
-                  <SelectItem value="control">🎯 Totales de Control</SelectItem>
-                  <SelectItem value="unclassified">📝 Sin clasificar</SelectItem>
-                </SelectContent>
-              </Select>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={expandAll}>
-                Expandir Todo
-              </Button>
-              <Button variant="outline" size="sm" onClick={collapseAll}>
-                Colapsar Todo
-                </Button>
             </div>
-                                </div>
+            
+            <Select value={viewMode} onValueChange={(value: 'hierarchy' | 'flat') => setViewMode(value)}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hierarchy">🌳 Vista Jerárquica</SelectItem>
+                <SelectItem value="flat">📋 Vista Plana</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">📋 Todas las cuentas</SelectItem>
+                <SelectItem value="invalid">❌ Con discrepancias</SelectItem>
+                <SelectItem value="partial">⚠️ Parcialmente válidas</SelectItem>
+                <SelectItem value="valid">✅ Válidas</SelectItem>
+                <SelectItem value="control">🎯 Totales de Control</SelectItem>
+                <SelectItem value="unclassified">📝 Sin clasificar</SelectItem>
+                <SelectItem value="user_mentioned">🔍 Cuentas específicas</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {viewMode === 'hierarchy' && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={expandAll}>
+                  Expandir Todo
+                </Button>
+                <Button variant="outline" size="sm" onClick={collapseAll}>
+                  Colapsar Todo
+                </Button>
+              </div>
+            )}
+          </div>
 
-          {/* Hierarchical Tree View - Excel-like */}
+          {/* Account Display */}
           <div className="flex-1 border rounded-lg bg-white overflow-hidden">
             {/* Table Header */}
             <div className="grid grid-cols-12 gap-2 items-center py-2 px-4 bg-gray-50 border-b border-gray-200 text-xs text-gray-600 font-medium">
@@ -1299,23 +1526,46 @@ export default function EnhancedDebugModal({
             {/* Table Content */}
             <div className="h-full overflow-y-auto">
               <div className="min-h-[400px]">
-                {filteredAccounts.map(account => (
-                  <HierarchicalAccountRow
-                    key={account.codigo}
-                    account={account}
-                    level={0}
-                    expandedAccounts={expandedAccounts}
-                    onToggleExpand={handleToggleExpand}
-                    editingAccountId={editingAccountId}
-                    onEdit={setEditingAccountId}
-                    onUpdate={handleAccountUpdate}
-                    onCancelEdit={() => setEditingAccountId(null)}
-                  />
-                ))}
+                {viewMode === 'flat' ? (
+                  // Flat view - show all accounts in a simple list
+                  filteredAccounts.map(account => (
+                    <HierarchicalAccountRow
+                      key={account.codigo}
+                      account={account}
+                      level={0}
+                      expandedAccounts={new Set()}
+                      onToggleExpand={() => {}}
+                      editingAccountId={editingAccountId}
+                      onEdit={setEditingAccountId}
+                      onUpdate={handleAccountUpdate}
+                      onCancelEdit={() => setEditingAccountId(null)}
+                    />
+                  ))
+                ) : (
+                  // Hierarchical view
+                  filteredAccounts.map(account => (
+                    <HierarchicalAccountRow
+                      key={account.codigo}
+                      account={account}
+                      level={0}
+                      expandedAccounts={expandedAccounts}
+                      onToggleExpand={handleToggleExpand}
+                      editingAccountId={editingAccountId}
+                      onEdit={setEditingAccountId}
+                      onUpdate={handleAccountUpdate}
+                      onCancelEdit={() => setEditingAccountId(null)}
+                    />
+                  ))
+                )}
                 
                 {filteredAccounts.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     No se encontraron cuentas con los filtros aplicados
+                    {stats.missingAccounts > 0 && (
+                      <div className="mt-2 text-red-600">
+                        ⚠️ {stats.missingAccounts} cuentas perdidas durante procesamiento de jerarquía
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1324,7 +1574,10 @@ export default function EnhancedDebugModal({
 
           <DialogFooter className="flex-shrink-0 flex justify-between gap-3 p-4 md:p-0 md:pt-4">
             <div className="text-xs text-gray-500">
-              {filteredAccounts.length} cuentas • {stats.validAggregations}/{stats.aggregationAccounts} válidas
+              {filteredAccounts.length} mostradas • {stats.totalAccounts} total • {stats.validAggregations}/{stats.aggregationAccounts} válidas
+              {stats.missingAccounts > 0 && (
+                <span className="text-red-600 ml-2">• ⚠️ {stats.missingAccounts} perdidas</span>
+              )}
             </div>
             <div className="flex gap-3">
               <Button variant="outline" onClick={onClose}>

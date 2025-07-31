@@ -387,13 +387,40 @@ export class ImprovedHierarchyDetector {
         
       case 3: // Sub-categoría
         
+        // ESPECIAL: Caso específico para cuentas 5000-1000-00X-000 (como 5000-1000-002-000, 5000-1000-003-000)
+        if (parsed.nivel1 === '5000' && parsed.nivel2 === '1000' && parsed.nivel4 === '000' && parsed.nivel3 !== '000') {
+          const parentL3 = '5000-1000-000-000'; // Padre común para toda la familia 1000
+          
+          if (allAccounts.has(parentL3)) {
+            warnings.push(`Cuenta especial 5000-1000 asignada a padre L3: ${parentL3}`);
+            return {
+              parent: parentL3,
+              parentType: 'FAMILY_ROOT',
+              warnings
+            };
+          } else {
+            // Si no existe el padre 5000-1000-000-000, buscar el padre principal 5000-0000-000-000
+            const mainParent = '5000-0000-000-000';
+            if (allAccounts.has(mainParent)) {
+              warnings.push(`Cuenta especial 5000-1000 asignada al padre principal: ${mainParent}`);
+              return {
+                parent: mainParent,
+                parentType: 'FAMILY_ROOT',
+                warnings
+              };
+            }
+          }
+        }
+        
         // NUEVO: Para cuentas 5000, buscar padre específico de familia
         if (parsed.nivel1 === '5000' && parsed.nivel3 === '000' && parsed.nivel4 === '000') {
           const familyNumber = parsed.nivel2.substring(0, 1);
           let specificParentL2 = null;
           
           // Mapeo específico para familia 5000 usando cuentas existentes
-          if (familyNumber === '2') {
+          if (familyNumber === '1') {
+            specificParentL2 = '5000-1000-000-000'; // Costos de Producción familia 1000
+          } else if (familyNumber === '2') {
             specificParentL2 = '5000-2000-000-000'; // Gastos de Administración
           } else if (familyNumber === '3') {
             specificParentL2 = '5000-3000-000-000'; // Gastos Indirectos
