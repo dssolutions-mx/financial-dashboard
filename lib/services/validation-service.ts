@@ -61,6 +61,16 @@ export class ValidationEngine {
   private readonly TOLERANCE = 0.01 // Allow 1 peso tolerance for rounding
 
   /**
+   * Helper method to determine if an item is fully classified
+   * Uses the same criteria as the debug modal for consistency
+   */
+  private isFullyClassified(row: DebugDataRow): boolean {
+    const hasValidTipo = Boolean(row.Tipo && row.Tipo !== "Indefinido")
+    const hasValidCategoria1 = Boolean(row['Categoria 1'] && row['Categoria 1'] !== "Sin Categoría")
+    return hasValidTipo && hasValidCategoria1
+  }
+
+  /**
    * Validates processed Excel data by comparing hierarchy totals with classified totals
    */
   validateData(processedData: DebugDataRow[], rawData?: any[]): ValidationSummary {
@@ -254,10 +264,11 @@ export class ValidationEngine {
         console.log(`[ValidationEngine] Ingresos hierarchy found: Abonos=${abonos}, Cargos=${cargos}, Total=${ingresos}`)
       } else if (row.Codigo === this.HIERARCHY_CODES.EGRESOS) {
         // For Egresos hierarchy: Cargos - Abonos (Abonos would be returns/refunds)
+        // CORREGIDO: Make egresos negative to match sign convention used in processed data
         const cargos = row.Cargos || 0
         const abonos = row.Abonos || 0
-        egresos = cargos - abonos
-        console.log(`[ValidationEngine] Egresos hierarchy found: Cargos=${cargos}, Abonos=${abonos}, Total=${egresos}`)
+        egresos = -(cargos - abonos) // Make negative to match classified data sign convention
+        console.log(`[ValidationEngine] Egresos hierarchy found: Cargos=${cargos}, Abonos=${abonos}, Total=${egresos} (made negative to match sign convention)`)
       }
     }
 
@@ -268,7 +279,7 @@ export class ValidationEngine {
   /**
    * Calculate totals from classified data
    * Only count items that have been properly classified (not hierarchy rows)
-   * CORREGIDO: Maneja correctamente los signos para devoluciones
+   * CORREGIDO: Usar los mismos criterios que el debug modal - requiere Tipo Y Categoria 1
    */
   private calculateClassifiedTotals(processedData: DebugDataRow[]): { ingresos: number; egresos: number } {
     let ingresos = 0
@@ -280,27 +291,63 @@ export class ValidationEngine {
         continue
       }
 
-      // Count items that have been classified by the excel-processor
-      // If Tipo is determined (not 'Indefinido'), then it was classified
-      if (row.Tipo === 'Ingresos') {
-        // CORREGIDO: Para ingresos, sumar tal como está (positivo suma, negativo resta)
-        // Esto maneja correctamente las devoluciones de ventas (ingresos negativos)
-        ingresos += row.Monto
-      } else if (row.Tipo === 'Egresos') {
-        // CORREGIDO: Para egresos, sumar el valor absoluto
-        // Los egresos normales vienen como negativos, las devoluciones como positivos
-        // Para el total de egresos, queremos el valor absoluto del neto
-        egresos += Math.abs(row.Monto)
+      // Only count fully classified items (same logic as debug modal)
+      if (this.isFullyClassified(row)) {
+        if (row.Tipo === 'Ingresos') {
+          // CORREGIDO: Para ingresos, usar el monto exactamente como viene (preserva signo para devoluciones)
+          ingresos += row.Monto
+        } else if (row.Tipo === 'Egresos') {
+          // TEMPORAL: Log both approaches to determine which is correct
+          egresos += row.Monto
+        }
       }
     }
 
-    console.log(`[ValidationEngine] Classified totals: Ingresos=${ingresos}, Egresos=${egresos}`)
+    console.log(`[ValidationEngine] Classified totals (matching debug modal criteria): Ingresos=${ingresos}, Egresos=${egresos}`)
+    
+    // DEBUG: Log individual account contributions to understand sign conventions
+    console.log(`[ValidationEngine] DETAILED BREAKDOWN:`)
+    const ingresosItems: any[] = []
+    const egresosItems: any[] = []
+    
+    for (const row of processedData) {
+      if (row.Codigo === this.HIERARCHY_CODES.INGRESOS || row.Codigo === this.HIERARCHY_CODES.EGRESOS) {
+        continue
+      }
+      
+      if (this.isFullyClassified(row)) {
+        if (row.Tipo === 'Ingresos') {
+          ingresosItems.push({ codigo: row.Codigo, concepto: row.Concepto, monto: row.Monto })
+        } else if (row.Tipo === 'Egresos') {
+          egresosItems.push({ codigo: row.Codigo, concepto: row.Concepto, monto: row.Monto })
+        }
+      }
+    }
+    
+    console.log(`[ValidationEngine] Classified Ingresos items (${ingresosItems.length}):`, ingresosItems.slice(0, 5))
+    console.log(`[ValidationEngine] Classified Egresos items (${egresosItems.length}):`, egresosItems.slice(0, 5))
+    console.log(`[ValidationEngine] Ingresos amounts sign analysis:`, {
+      positive: ingresosItems.filter(i => i.monto > 0).length,
+      negative: ingresosItems.filter(i => i.monto < 0).length,
+      totalSum: ingresosItems.reduce((sum, i) => sum + i.monto, 0)
+    })
+    console.log(`[ValidationEngine] Egresos amounts sign analysis:`, {
+      positive: egresosItems.filter(i => i.monto > 0).length,
+      negative: egresosItems.filter(i => i.monto < 0).length,
+      totalSum: egresosItems.reduce((sum, i) => sum + i.monto, 0),
+      totalSumAbs: egresosItems.reduce((sum, i) => sum + Math.abs(i.monto), 0)
+    })
+    console.log(`[ValidationEngine] COMPARISON OF EGRESOS CALCULATION METHODS:`)
+    console.log(`[ValidationEngine] Current method (preserving signs): ${egresos}`)
+    console.log(`[ValidationEngine] Alternative method (Math.abs): ${egresosItems.reduce((sum, i) => sum + Math.abs(i.monto), 0)}`)
+    
     return { ingresos, egresos }
   }
 
   /**
    * Identify items that couldn't be properly classified
    * Excludes hierarchy rows which should not be classified
+   * CORREGIDO: Usar los mismos criterios que el debug modal - requiere Tipo Y Categoria 1
    */
   private identifyUnclassifiedItems(processedData: DebugDataRow[]): DebugDataRow[] {
     return processedData.filter(row => {
@@ -309,8 +356,8 @@ export class ValidationEngine {
         return false
       }
       
-      // Return rows that are not properly classified (Tipo = 'Indefinido' means not classified)
-      return row.Tipo === 'Indefinido'
+      // Return rows that are not fully classified (missing either Tipo or Categoria 1)
+      return !this.isFullyClassified(row)
     })
   }
 

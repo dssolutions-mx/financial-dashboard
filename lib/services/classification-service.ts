@@ -19,10 +19,12 @@ export interface ClassificationHierarchy {
 // Formato: Tipo -> Sub categoria -> Clasificacion -> [Categoria 1]
 export const CLASSIFICATION_HIERARCHY: ClassificationHierarchy = {
   "Ingresos": {
-    "Ventas": {
+    "Ventas Concreto": {
       "Ventas Concreto": [
-        "Ventas Concreto"
-      ],
+        "Ventas"
+      ]
+    },
+    "Ventas": {
       "Ventas": [
         "Ventas Productos Alternativos"
       ]
@@ -137,9 +139,9 @@ export function suggestClassification(concepto: string, codigo: string): {
   
   if (tipo === "Ingresos") {
     if (conceptoLower.includes("concreto") && !conceptoLower.includes("bombeo")) {
-      suggestions.subCategoria = "Ventas"
-      suggestions.clasificacion = "Ventas"
-      suggestions.categoria1 = "Ventas Concreto"
+      suggestions.subCategoria = "Ventas Concreto"
+      suggestions.clasificacion = "Ventas Concreto"
+      suggestions.categoria1 = "Ventas"
     } else if (conceptoLower.includes("bombeo")) {
       suggestions.subCategoria = "Ventas Bombeo"
       suggestions.clasificacion = "Ventas Bombeo"

@@ -46,55 +46,55 @@ const UNIFIED_CLASSIFICATIONS: UnifiedClassification[] = [
     "categoria_ingresos": "Ventas Concreto",
     "codigo_ingresos": "4100-1000-001-000",
     "concepto_ingresos": "Concreto Sil P1",
-    "concepto_gerencia": "Ventas Concreto",
+    "concepto_gerencia": "Ventas",
     "clasificacion_gerencia": "Ingresos",
-    "sub_clasificacion_gerencia": "Ventas",
-    "sub_sub_clasificacion_gerencia": "Ventas"
+    "sub_clasificacion_gerencia": "Ventas Concreto",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
   },
   {
     "categoria_ingresos": "Ventas Concreto",
     "codigo_ingresos": "4100-2000-001-000",
     "concepto_ingresos": "Concreto TI P-2",
-    "concepto_gerencia": "Ventas Concreto",
+    "concepto_gerencia": "Ventas",
     "clasificacion_gerencia": "Ingresos",
-    "sub_clasificacion_gerencia": "Ventas",
-    "sub_sub_clasificacion_gerencia": "Ventas"
+    "sub_clasificacion_gerencia": "Ventas Concreto",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
   },
   {
     "categoria_ingresos": "Ventas Concreto",
     "codigo_ingresos": "4100-3000-001-000",
     "concepto_ingresos": "Concreto TI P3",
-    "concepto_gerencia": "Ventas Concreto",
+    "concepto_gerencia": "Ventas",
     "clasificacion_gerencia": "Ingresos",
-    "sub_clasificacion_gerencia": "Ventas",
-    "sub_sub_clasificacion_gerencia": "Ventas"
+    "sub_clasificacion_gerencia": "Ventas Concreto",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
   },
   {
     "categoria_ingresos": "Ventas Concreto",
     "codigo_ingresos": "4100-5000-001-000",
     "concepto_ingresos": "Concreto TI P-4",
-    "concepto_gerencia": "Ventas Concreto",
+    "concepto_gerencia": "Ventas",
     "clasificacion_gerencia": "Ingresos",
-    "sub_clasificacion_gerencia": "Ventas",
-    "sub_sub_clasificacion_gerencia": "Ventas"
+    "sub_clasificacion_gerencia": "Ventas Concreto",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
   },
   {
     "categoria_ingresos": "Ventas Concreto",
     "codigo_ingresos": "4100-8000-001-000",
     "concepto_ingresos": "Concreto Mexicali",
-    "concepto_gerencia": "Ventas Concreto",
+    "concepto_gerencia": "Ventas",
     "clasificacion_gerencia": "Ingresos",
-    "sub_clasificacion_gerencia": "Ventas",
-    "sub_sub_clasificacion_gerencia": "Ventas"
+    "sub_clasificacion_gerencia": "Ventas Concreto",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
   },
   {
     "categoria_ingresos": "Ventas Concreto",
     "codigo_ingresos": "4100-4000-000-000",
     "concepto_ingresos": "Ventas publico Tijuana P-1 8%",
-    "concepto_gerencia": "Ventas Concreto",
+    "concepto_gerencia": "Ventas",
     "clasificacion_gerencia": "Ingresos",
-    "sub_clasificacion_gerencia": "Ventas",
-    "sub_sub_clasificacion_gerencia": "Ventas"
+    "sub_clasificacion_gerencia": "Ventas Concreto",
+    "sub_sub_clasificacion_gerencia": "Ventas Concreto"
   },
   {
     "categoria_ingresos": "Ventas Productos Alternativos",
