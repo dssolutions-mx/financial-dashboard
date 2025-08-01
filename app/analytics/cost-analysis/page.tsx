@@ -350,7 +350,7 @@ export default function CostAnalysisPage() {
           .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0))
       },
       {
-        category: "Costos Operativos", 
+        category: "Costo Operativo", 
         target: income * targets.costosOperativos / 100,
         current: Math.abs(data
           .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo")

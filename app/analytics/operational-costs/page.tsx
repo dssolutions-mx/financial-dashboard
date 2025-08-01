@@ -122,8 +122,8 @@ const PLANT_TO_UNIT: Record<string, string> = {
 
 // Operational cost structure as per the proper classification hierarchy
 const OPERATIONAL_COST_STRUCTURE = {
-  "Costo transporte concreto": {
-    name: "Costo Transporte Concreto",
+        "Costo transporte": {
+        name: "Costo Transporte",
     target: 18,
     color: "#f97316",
     icon: Truck
@@ -382,14 +382,14 @@ export default function OperationalCostsPage() {
     // Pumping-specific costs (only "Costo servicio de bomba")
     const pumpingServiceCosts = data
       .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo" && 
-                     row.clasificacion === "Costo transporte concreto" && 
+                     row.clasificacion === "Costo transporte" && 
                      row.categoria_1 === "Costo servicio de bomba")
       .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
 
     // Concrete transport costs (all transport costs EXCEPT pumping service)
     const concreteTransportCosts = data
       .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo" && 
-                     row.clasificacion === "Costo transporte concreto" && 
+                     row.clasificacion === "Costo transporte" && 
                      row.categoria_1 !== "Costo servicio de bomba")
       .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
 
@@ -428,7 +428,7 @@ export default function OperationalCostsPage() {
     // Concrete operations metric (transport + allocated fixed costs)
     if (totalConcreteCosts > 0) {
       const concreteBreakdown = calculatePlantBreakdown(
-        row => (row.clasificacion === "Costo transporte concreto" && row.categoria_1 !== "Costo servicio de bomba") ||
+        row => (row.clasificacion === "Costo transporte" && row.categoria_1 !== "Costo servicio de bomba") ||
                row.clasificacion === "Costo Fijo"
       )
       
@@ -454,7 +454,7 @@ export default function OperationalCostsPage() {
     // Pumping service metric (pumping service + allocated fixed costs)
     if (totalPumpingCosts > 0) {
       const pumpingBreakdown = calculatePlantBreakdown(
-        row => (row.clasificacion === "Costo transporte concreto" && row.categoria_1 === "Costo servicio de bomba") ||
+        row => (row.clasificacion === "Costo transporte" && row.categoria_1 === "Costo servicio de bomba") ||
                row.clasificacion === "Costo Fijo"
       )
       
@@ -500,7 +500,7 @@ export default function OperationalCostsPage() {
 
     // Calculate transport and fixed costs separately for analysis
     const transportCosts = data
-      .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo" && row.clasificacion === "Costo transporte concreto")
+      .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo" && row.clasificacion === "Costo transporte")
       .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
 
     const fixedCosts = data
@@ -680,7 +680,7 @@ export default function OperationalCostsPage() {
       const plantaData = data.filter((row: any) => row.planta === planta)
       
       const costoTransporte = plantaData
-        .filter((row: any) => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo" && row.clasificacion === "Costo transporte concreto")
+        .filter((row: any) => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo" && row.clasificacion === "Costo transporte")
         .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0)
 
       const costoFijo = plantaData
@@ -728,7 +728,7 @@ export default function OperationalCostsPage() {
       const costoBombeo = plantaData
         .filter((row: any) => row.tipo === "Egresos" && 
                              row.sub_categoria === "Costo operativo" && 
-                             row.clasificacion === "Costo transporte concreto" &&
+                             row.clasificacion === "Costo transporte" &&
                              row.categoria_1 === "Costo servicio de bomba")
         .reduce((sum: number, row: any) => sum + Math.abs(row.monto || 0), 0)
 
@@ -1466,7 +1466,7 @@ export default function OperationalCostsPage() {
                         }}
                       />
                       <Legend />
-                      <Line type="monotone" dataKey="costoTransporte" stroke="#f97316" strokeWidth={2} name="Costo Transporte Concreto" />
+                      <Line type="monotone" dataKey="costoTransporte" stroke="#f97316" strokeWidth={2} name="Costo Transporte" />
                       <Line type="monotone" dataKey="costoFijo" stroke="#3b82f6" strokeWidth={2} name="Costos Fijos Operativos" />
                     </LineChart>
                   </ResponsiveContainer>
@@ -1656,14 +1656,14 @@ export default function OperationalCostsPage() {
                  // Pumping-specific costs (only "Costo servicio de bomba")
                  const pumpingServiceCosts = currentOperationalData
                    .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo" && 
-                                  row.clasificacion === "Costo transporte concreto" && 
+                                  row.clasificacion === "Costo transporte" && 
                                   row.categoria_1 === "Costo servicio de bomba")
                    .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
 
                  // Concrete transport costs (all transport costs EXCEPT pumping service)
                  const concreteTransportCosts = currentOperationalData
                    .filter(row => row.tipo === "Egresos" && row.sub_categoria === "Costo operativo" && 
-                                  row.clasificacion === "Costo transporte concreto" && 
+                                  row.clasificacion === "Costo transporte" && 
                                   row.categoria_1 !== "Costo servicio de bomba")
                    .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
 
@@ -2041,7 +2041,7 @@ export default function OperationalCostsPage() {
                     const transportData = currentOperationalData.filter(row => 
                       row.tipo === "Egresos" && 
                       row.sub_categoria === "Costo operativo" && 
-                      row.clasificacion === "Costo transporte concreto" &&
+                      row.clasificacion === "Costo transporte" &&
                       row.categoria_1 !== "Costo servicio de bomba"
                     )
                     

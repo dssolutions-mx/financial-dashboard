@@ -466,7 +466,7 @@ export default function KPIsPage() {
 
     // Calculate costs by managerial categories (respecting structure)
     const costoTransporte = data
-      .filter(row => row.tipo === "Egresos" && row.clasificacion === "Costo transporte concreto")
+              .filter(row => row.tipo === "Egresos" && row.clasificacion === "Costo transporte")
       .reduce((sum, row) => sum + Math.abs(row.monto || 0), 0)
 
     const costoPersonalFijo = data
@@ -815,11 +815,11 @@ export default function KPIsPage() {
     }
 
     // Add "Costo operativo" sub-categories
-    if (costoOperativoByClasificacion["Costo transporte concreto"]) {
+    if (costoOperativoByClasificacion["Costo transporte"]) {
       enhancedExpenseData.push({
-        name: "Costo Transporte Concreto",
-        value: costoOperativoByClasificacion["Costo transporte concreto"],
-        percentage: totalExpense > 0 ? (costoOperativoByClasificacion["Costo transporte concreto"] / totalExpense) * 100 : 0,
+        name: "Costo Transporte",
+        value: costoOperativoByClasificacion["Costo transporte"],
+        percentage: totalExpense > 0 ? (costoOperativoByClasificacion["Costo transporte"] / totalExpense) * 100 : 0,
         color: "#dc2626"
       })
     }

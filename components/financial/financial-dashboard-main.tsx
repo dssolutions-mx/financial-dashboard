@@ -16,6 +16,7 @@ import FamilyAwareClassificationModal from "@/components/classification/FamilyAw
 import ReportSelector from "@/components/reports/report-selector"
 // Family validation imports removed - no longer needed
 import { FamilyAwareClassificationService, Classification } from "@/lib/services/family-aware-classification.service"
+import { getCategoriesInOrder } from "@/lib/services/classification-service-client"
 
 interface FinancialDashboardMainProps {
   initialData: DebugDataRow[]
@@ -163,30 +164,30 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
   }, [initialData])
 
   // Calculate summary data
-  const calculateSummary = useCallback((filteredData: DebugDataRow[]) => {
-    const filteredByUnit = selectedUnits.includes("ALL")
+  const calculateSummary = useCallback((filteredData: DebugDataRow[], currentSelectedUnits: string[], currentSelectedCategory: string, currentCashSalesData: Record<string, Record<string, { volume: number; amount: number }>>) => {
+    const filteredByUnit = currentSelectedUnits.includes("ALL")
      ? filteredData
      : filteredData.filter((row) => {
          const unit = plantToUnit[row.Planta as keyof typeof plantToUnit]
-         return unit ? selectedUnits.includes(unit) : false
+         return unit ? currentSelectedUnits.includes(unit) : false
        })
 
-   const finalFilteredData = selectedCategory === "ALL"
+   const finalFilteredData = currentSelectedCategory === "ALL"
      ? filteredByUnit
-     : filteredByUnit.filter((row) => row["Categoria 1"] === selectedCategory)
+     : filteredByUnit.filter((row) => row["Categoria 1"] === currentSelectedCategory)
 
    const ingresosFiscales = finalFilteredData.filter((row) => row.Tipo === "Ingresos").reduce((sum, row) => sum + row.Monto, 0)
    const egresosPositive = finalFilteredData.filter((row) => row.Tipo === "Egresos").reduce((sum, row) => sum + row.Monto, 0)
    const egresos = -Math.abs(egresosPositive)
    
    // Get visible plants for cash sales calculation
-   const visiblePlants = selectedUnits.includes("ALL") 
+   const visiblePlants = currentSelectedUnits.includes("ALL") 
      ? ALL_PLANTS 
-     : selectedUnits.flatMap(unit => unitToPlants[unit] || [])
+     : currentSelectedUnits.flatMap(unit => unitToPlants[unit] || [])
    
    // Calculate cash sales revenue inline
    let ingresosCash = 0
-   Object.entries(cashSalesData).forEach(([category, plants]) => {
+   Object.entries(currentCashSalesData).forEach(([category, plants]) => {
      visiblePlants.forEach(plant => {
        if (plants[plant]) {
          ingresosCash += plants[plant].amount
@@ -203,32 +204,32 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
      utilidadBruta,
      porcentajeUtilidad,
    })
- }, [selectedUnits, selectedCategory, cashSalesData])
+ }, [])
 
- const processMatrixData = useCallback((filteredData: DebugDataRow[]) => {
-   const filteredByUnit = selectedUnits.includes("ALL")
+ const processMatrixData = useCallback((filteredData: DebugDataRow[], currentSelectedUnits: string[], currentSelectedCategory: string, currentCashSalesData: Record<string, Record<string, { volume: number; amount: number }>>) => {
+   const filteredByUnit = currentSelectedUnits.includes("ALL")
      ? filteredData
      : filteredData.filter((row) => {
          const unit = plantToUnit[row.Planta as keyof typeof plantToUnit]
-         return unit ? selectedUnits.includes(unit) : false
+         return unit ? currentSelectedUnits.includes(unit) : false
        })
 
-    const finalFilteredData = selectedCategory === 'ALL'
+    const finalFilteredData = currentSelectedCategory === 'ALL'
            ? filteredByUnit
-           : filteredByUnit.filter(row => row['Categoria 1'] === selectedCategory)
+           : filteredByUnit.filter(row => row['Categoria 1'] === currentSelectedCategory)
 
    const hierarchy: Record<string, any> = {}
    
    // Get visible plants for cash sales
-   const visiblePlants = selectedUnits.includes("ALL") 
+   const visiblePlants = currentSelectedUnits.includes("ALL") 
      ? ALL_PLANTS 
-     : selectedUnits.flatMap(unit => unitToPlants[unit] || [])
+     : currentSelectedUnits.flatMap(unit => unitToPlants[unit] || [])
 
    finalFilteredData.forEach((row) => {
      const tipo = row.Tipo
+     const categoria1 = row["Categoria 1"] || "Sin Categoría"
      const subCategoria = row["Sub categoria"] || "Sin Subcategoría"
      const clasificacion = row.Clasificacion || "Sin Clasificación"
-     const categoria1 = row["Categoria 1"] || "Sin Categoría"
      const codigo = row.Codigo || "Sin Código"
      const concepto = row.Concepto || "Sin Concepto"
      const cuentaKey = `${codigo} - ${concepto}`
@@ -236,36 +237,37 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
      const monto = tipo === "Egresos" ? -Math.abs(row.Monto) : row.Monto
      const validPlanta = ALL_PLANTS.includes(planta) ? planta : "SIN CLASIFICACION"
 
+      // CORRECTED HIERARCHY: Tipo → Categoria1 → SubCategoria → Clasificacion → Cuentas
       if (!hierarchy[tipo]) {
         hierarchy[tipo] = {
           total: 0,
-          subCategorias: {},
+          subCategorias: {}, // This will now contain categoria1 items
           plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
         }
       }
-      if (!hierarchy[tipo].subCategorias[subCategoria]) {
-        hierarchy[tipo].subCategorias[subCategoria] = {
+      if (!hierarchy[tipo].subCategorias[categoria1]) {
+        hierarchy[tipo].subCategorias[categoria1] = {
           total: 0,
-          clasificaciones: {},
+          clasificaciones: {}, // This will now contain subCategoria items
           plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
         }
       }
-      if (!hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion]) {
-        hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion] = {
+      if (!hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria]) {
+        hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria] = {
           total: 0,
-          categorias1: {},
+          categorias1: {}, // This will now contain clasificacion items
           plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
         }
       }
-      if (!hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1]) {
-        hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1] = {
+      if (!hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion]) {
+        hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion] = {
           total: 0,
           cuentas: {},
           plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
         }
       }
-      if (!hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey]) {
-        hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey] = {
+      if (!hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].cuentas[cuentaKey]) {
+        hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].cuentas[cuentaKey] = {
           total: 0,
           codigo,
           concepto,
@@ -279,30 +281,30 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
          hierarchy[tipo].plantas[validPlanta] += monto
        }
 
-       hierarchy[tipo].subCategorias[subCategoria].total += monto
-       if (hierarchy[tipo].subCategorias[subCategoria].plantas[validPlanta] !== undefined) {
-         hierarchy[tipo].subCategorias[subCategoria].plantas[validPlanta] += monto
+       hierarchy[tipo].subCategorias[categoria1].total += monto
+       if (hierarchy[tipo].subCategorias[categoria1].plantas[validPlanta] !== undefined) {
+         hierarchy[tipo].subCategorias[categoria1].plantas[validPlanta] += monto
         }
 
-       hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].total += monto
-        if (hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].plantas[validPlanta] !== undefined) {
-          hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].plantas[validPlanta] += monto
+       hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].total += monto
+        if (hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].plantas[validPlanta] !== undefined) {
+          hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].plantas[validPlanta] += monto
         }
 
-       hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].total += monto
-        if (hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].plantas[validPlanta] !== undefined) {
-          hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].plantas[validPlanta] += monto
+       hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].total += monto
+        if (hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].plantas[validPlanta] !== undefined) {
+          hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].plantas[validPlanta] += monto
         }
 
        // Update the new cuenta level
-       hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey].total += monto
-       if (hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey].plantas[validPlanta] !== undefined) {
-         hierarchy[tipo].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey].plantas[validPlanta] += monto
+       hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].cuentas[cuentaKey].total += monto
+       if (hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].cuentas[cuentaKey].plantas[validPlanta] !== undefined) {
+         hierarchy[tipo].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].cuentas[cuentaKey].plantas[validPlanta] += monto
        }
      })
 
      // Add cash sales data to hierarchy as additional income rows
-     if (Object.keys(cashSalesData).length > 0) {
+     if (Object.keys(currentCashSalesData).length > 0) {
        // Ensure Ingresos section exists
        if (!hierarchy["Ingresos"]) {
          hierarchy["Ingresos"] = {
@@ -313,32 +315,33 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
        }
 
        // Add cash sales entries
-       Object.entries(cashSalesData).forEach(([category, plants]) => {
-         const subCategoria = "Ventas en Efectivo"
+       Object.entries(currentCashSalesData).forEach(([category, plants]) => {
+         // CORRECTED HIERARCHY for cash sales
+         const categoria1 = "Ventas" // Top level category
+         const subCategoria = category === "Ventas Concreto Cash" ? "Ventas Concreto" : "Ventas Bombeo"
          const clasificacion = category === "Ventas Concreto Cash" ? "Ventas Concreto (Efectivo)" : "Ventas Bombeo (Efectivo)"
-         const categoria1 = category === "Ventas Concreto Cash" ? "Ventas Concreto" : "Ventas Bombeo"
 
-         // Initialize subcategory if it doesn't exist
-         if (!hierarchy["Ingresos"].subCategorias[subCategoria]) {
-           hierarchy["Ingresos"].subCategorias[subCategoria] = {
+         // Initialize categoria1 if it doesn't exist
+         if (!hierarchy["Ingresos"].subCategorias[categoria1]) {
+           hierarchy["Ingresos"].subCategorias[categoria1] = {
              total: 0,
              clasificaciones: {},
              plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
            }
          }
 
-         // Initialize classification if it doesn't exist
-         if (!hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion]) {
-           hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion] = {
+         // Initialize subcategory if it doesn't exist
+         if (!hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria]) {
+           hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria] = {
              total: 0,
              categorias1: {},
              plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
            }
          }
 
-         // Initialize categoria1 if it doesn't exist
-         if (!hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1]) {
-           hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1] = {
+         // Initialize classification if it doesn't exist
+         if (!hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion]) {
+           hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion] = {
              total: 0,
              cuentas: {},
              plantas: ALL_PLANTS.reduce((acc, p) => { acc[p] = 0; return acc; }, {} as Record<string, number>),
@@ -352,8 +355,8 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
              const cuentaKey = `CASH-${plant} - Ventas en Efectivo ${plant}`
              
              // Initialize cuenta for cash sales if it doesn't exist
-             if (!hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey]) {
-               hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey] = {
+             if (!hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].cuentas[cuentaKey]) {
+               hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].cuentas[cuentaKey] = {
                  total: 0,
                  codigo: `CASH-${plant}`,
                  concepto: `Ventas en Efectivo ${plant}`,
@@ -361,44 +364,45 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
                }
              }
              
-             // Update all levels
+             // Update all levels with CORRECTED hierarchy
              hierarchy["Ingresos"].total += monto
              hierarchy["Ingresos"].plantas[plant] += monto
 
-             hierarchy["Ingresos"].subCategorias[subCategoria].total += monto
-             hierarchy["Ingresos"].subCategorias[subCategoria].plantas[plant] += monto
+             hierarchy["Ingresos"].subCategorias[categoria1].total += monto
+             hierarchy["Ingresos"].subCategorias[categoria1].plantas[plant] += monto
 
-             hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].total += monto
-             hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].plantas[plant] += monto
+             hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria].total += monto
+             hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria].plantas[plant] += monto
 
-             hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].total += monto
-             hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].plantas[plant] += monto
+             hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].total += monto
+             hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].plantas[plant] += monto
 
              // Update cuenta level for cash sales
-             hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey].total += monto
-             hierarchy["Ingresos"].subCategorias[subCategoria].clasificaciones[clasificacion].categorias1[categoria1].cuentas[cuentaKey].plantas[plant] += monto
+             hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].cuentas[cuentaKey].total += monto
+             hierarchy["Ingresos"].subCategorias[categoria1].clasificaciones[subCategoria].categorias1[clasificacion].cuentas[cuentaKey].plantas[plant] += monto
            }
          })
        })
      }
 
    setMatrixData(hierarchy)
-  }, [selectedUnits, selectedCategory, cashSalesData])
+  }, [])
 
   // Main useEffect for data processing
   useEffect(() => {
      const validData = data.filter(row => row.Tipo !== 'Indefinido')
 
-    calculateSummary(validData)
-    processMatrixData(validData)
+    calculateSummary(validData, selectedUnits, selectedCategory, cashSalesData)
+    processMatrixData(validData, selectedUnits, selectedCategory, cashSalesData)
 
     if (validData.length > 0) {
        const uniqueCategories = Array.from(new Set(validData.map((item) => item["Categoria 1"]).filter(Boolean))) as string[]
-       setCategories(["ALL", ...uniqueCategories.sort()])
+       const orderedCategories = getCategoriesInOrder(uniqueCategories)
+       setCategories(["ALL", ...orderedCategories])
     } else {
       setCategories(["ALL"])
     }
-  }, [data, selectedUnits, selectedCategory, calculateSummary, processMatrixData, cashSalesData])
+  }, [data, selectedUnits, selectedCategory, cashSalesData])
 
   // Get visible plants based on selected units
   const getVisiblePlants = useCallback(() => {
@@ -521,7 +525,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
     } finally {
       setIsLoadingVolumes(false)
     }
-  }, [storageService, toast])
+  }, [])
 
   // Load cash sales data from database
   const loadCashSalesData = useCallback(async (month: number, year: number) => {
@@ -544,7 +548,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
     } finally {
       setIsLoadingCashSales(false)
     }
-  }, [storageService, toast])
+  }, [])
 
   // Handle volume data save from modal
   const handleVolumeSave = useCallback(async (volumeData: Record<string, Record<string, number>>) => {
@@ -575,7 +579,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
 
     await storageService.bulkSavePlantVolumes(volumeDataToSave)
     setVolumenes(volumeData)
-  }, [currentMonth, currentYear, storageService])
+  }, [currentMonth, currentYear])
 
   // Handle cash sales data save from modal
   const handleCashSalesSave = useCallback(async (cashSalesData: Record<string, Record<string, { volume: number; amount: number }>>) => {
@@ -608,7 +612,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
 
     await storageService.bulkSaveCashSales(cashSalesDataToSave)
     setCashSalesData(cashSalesData)
-  }, [currentMonth, currentYear, storageService])
+  }, [currentMonth, currentYear])
 
   // Family validation removed - no longer needed
 
@@ -650,7 +654,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
         variant: "destructive"
       })
     }
-  }, [data, onDataUpdate, selectedAccountForClassification, toast])
+  }, [data, onDataUpdate, selectedAccountForClassification])
 
 
 
@@ -666,23 +670,15 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
       setCurrentProcessedData(result.data)
       setCurrentRawData(result.rawData)
 
-      // First save the data to get a reportId for family validation
-      const tempReport = await storageService.saveFinancialData(
-        `Temp_${file.name}`,
-        file.name,
-        new Date().getMonth() + 1,
-        new Date().getFullYear(),
-        result.data
-      )
-
-      // Use basic validation only (family validation removed as it was not being used correctly)
+      // Validate data without saving to database first
       const summary = validationEngine.validateData(
         result.data, 
         result.rawData
       )
       
       setValidationSummary(summary)
-      setSelectedReportId(tempReport.id) // Store the temp report ID for later use
+      // No temporary report created - data stays in memory only
+      console.log('File processed and validated - waiting for user approval before saving to database')
       setIsValidationModalOpen(true)
     } catch (error) {
       console.error("Error processing file:", error)
@@ -865,7 +861,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
   // Call onReportIdChange when selectedReportId changes
   useEffect(() => {
     onReportIdChange?.(selectedReportId)
-  }, [selectedReportId, onReportIdChange])
+  }, [selectedReportId])
 
   return (
     <div className="w-full space-y-6">
@@ -1456,10 +1452,19 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
 
       <ValidationModal
         isOpen={isValidationModalOpen}
-        onClose={() => setIsValidationModalOpen(false)}
+        onClose={() => {
+          console.log('Validation modal closed - clearing temporary data from memory')
+          setIsValidationModalOpen(false)
+          // Clear temporary state when modal is closed or cancelled
+          setValidationSummary(null)
+          setCurrentProcessedData([])
+          setCurrentRawData([])
+          setCurrentFileName("")
+        }}
         validationSummary={validationSummary}
         fileName={currentFileName}
         onApprove={async (metadata: ReportMetadata) => {
+          console.log('User approved file - saving to database with name:', metadata.name)
           const report = await storageService.saveFinancialData(
             metadata.name,
             metadata.fileName,
@@ -1467,6 +1472,13 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
             metadata.year,
             currentProcessedData
           )
+          
+          // Show notification about new classifications if any were added
+          if (report.newClassificationsAdded && report.newClassificationsAdded > 0) {
+            console.log(`✅ Se agregaron ${report.newClassificationsAdded} nuevas clasificaciones automáticamente`);
+            // You could add a toast notification here if needed
+          }
+          
           setData(currentProcessedData)
           onDataUpdate(currentProcessedData)
           setSelectedReportId(report.id)
@@ -1479,9 +1491,11 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
           
           // Family validation removed - no longer needed
           
+          // Clear all temporary state after successful save
           setValidationSummary(null)
           setCurrentProcessedData([])
           setCurrentRawData([])
+          setCurrentFileName("")
         }}
         onViewUnclassified={() => {
           setIsValidationModalOpen(false)

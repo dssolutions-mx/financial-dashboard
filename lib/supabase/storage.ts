@@ -1,5 +1,6 @@
 import { createClient } from './client'
 import { DebugDataRow } from '../services/excel-processor'
+import { detectAndAddMissingClassifications } from '../services/classification-service-client'
 
 export interface FinancialReport {
   id: string
@@ -81,9 +82,20 @@ export class SupabaseStorageService {
     month: number,
     year: number,
     data: DebugDataRow[]
-  ): Promise<FinancialReport> {
+  ): Promise<FinancialReport & { newClassificationsAdded?: number }> {
     try {
-      // First, create the financial report
+      // STEP 1: Auto-detect and add missing classifications BEFORE saving the report
+      console.log('🔍 Detectando nuevas clasificaciones antes de guardar el reporte...');
+      const { newClassifications, totalAdded } = await detectAndAddMissingClassifications(data);
+      
+      if (totalAdded > 0) {
+        console.log(`✅ Se agregaron ${totalAdded} nuevas clasificaciones automáticamente:`, 
+          newClassifications.map(c => `${c.codigo_ingresos} - ${c.concepto_ingresos}`));
+      } else {
+        console.log('✅ No se detectaron nuevas clasificaciones faltantes.');
+      }
+
+      // STEP 2: Create the financial report
       const { data: report, error: reportError } = await this.supabase
         .from('financial_reports')
         .insert({
@@ -98,7 +110,7 @@ export class SupabaseStorageService {
 
       if (reportError) throw reportError
 
-      // Then, insert all the financial data rows
+      // STEP 3: Insert all the financial data rows
       const financialDataRows = data.map(row => ({
         report_id: report.id,
         codigo: row.Codigo,
@@ -122,7 +134,11 @@ export class SupabaseStorageService {
 
       if (dataError) throw dataError
 
-      return report
+      // Return report with info about new classifications added
+      return {
+        ...report,
+        newClassificationsAdded: totalAdded
+      }
     } catch (error) {
       console.error('Error saving financial data:', error)
       throw error

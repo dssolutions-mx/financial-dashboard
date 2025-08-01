@@ -35,9 +35,11 @@ import {
 import { 
   CLASSIFICATION_HIERARCHY,
   getSubCategoriasForTipo,
+  getSubcategoriasFromCategoria1,
   getClasificacionesForSubCategoria,
   getCategoria1ForClasificacion,
-  suggestClassification
+  suggestClassification,
+  getCategoriesInOrder
 } from "@/lib/services/classification-service-client"
 import { ValidationSummary } from "@/lib/services/validation-service"
 import { improvedHierarchyDetector } from "@/lib/services/enhanced-hierarchy-detector.service"
@@ -831,7 +833,11 @@ const InlineEditor = React.memo(({
   useEffect(() => {
     if (correctType && correctType !== "Indefinido") {
       getSubCategoriasForTipo(correctType)
-        .then(setCategorias1)
+        .then(categories => {
+          const filteredCategories = categories.filter(cat => cat !== 'Sin Subcategoría' && cat !== 'Sin Categoría')
+          const orderedCategories = getCategoriesInOrder(filteredCategories)
+          setCategorias1(['Sin Categoría', ...orderedCategories])
+        })
         .catch(() => setCategorias1(['Sin Categoría']))
     } else {
       setCategorias1(['Sin Categoría'])
@@ -841,7 +847,7 @@ const InlineEditor = React.memo(({
   // Load sub categorias when categoria1 changes
   useEffect(() => {
     if (correctType && localRow['Categoria 1'] && localRow['Categoria 1'] !== "Sin Categoría") {
-      getClasificacionesForSubCategoria(correctType, localRow['Categoria 1'])
+      getSubcategoriasFromCategoria1(correctType, localRow['Categoria 1'])
         .then(setSubCategorias)
         .catch(() => setSubCategorias(['Sin Subcategoría']))
     } else {
@@ -924,7 +930,6 @@ const InlineEditor = React.memo(({
             <SelectValue placeholder="Categoría 1" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Sin Categoría">Sin Categoría</SelectItem>
             {categorias1.map(cat => (
               <SelectItem key={cat} value={cat}>{cat}</SelectItem>
             ))}
@@ -940,7 +945,6 @@ const InlineEditor = React.memo(({
             <SelectValue placeholder="Sub categoría" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Sin Subcategoría">Sin Subcategoría</SelectItem>
             {subCategorias.map(subcat => (
               <SelectItem key={subcat} value={subcat}>{subcat}</SelectItem>
             ))}
@@ -956,7 +960,6 @@ const InlineEditor = React.memo(({
             <SelectValue placeholder="Clasificación" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Sin Clasificación">Sin Clasificación</SelectItem>
             {clasificaciones.map(clasif => (
               <SelectItem key={clasif} value={clasif}>{clasif}</SelectItem>
             ))}
@@ -978,7 +981,8 @@ const HierarchicalAccountRow = React.memo(({
   editingAccountId,
   onEdit,
   onUpdate,
-  onCancelEdit
+  onCancelEdit,
+  filteredAccountCodes
 }: {
   account: HierarchicalAccount
   level?: number
@@ -988,6 +992,7 @@ const HierarchicalAccountRow = React.memo(({
   onEdit: (codigo: string) => void
   onUpdate: (codigo: string, updates: Partial<DebugDataRow>) => void
   onCancelEdit: () => void
+  filteredAccountCodes?: Set<string>
 }) => {
   const isExpanded = expandedAccounts.has(account.codigo)
   const isEditing = editingAccountId === account.codigo
@@ -1166,6 +1171,7 @@ const HierarchicalAccountRow = React.memo(({
       {isExpanded && hasChildren && (
         <div>
           {account.children
+            .filter(child => !filteredAccountCodes || filteredAccountCodes.has(child.codigo))
             .sort((a, b) => a.codigo.localeCompare(b.codigo))
             .map(child => (
               <HierarchicalAccountRow
@@ -1178,6 +1184,7 @@ const HierarchicalAccountRow = React.memo(({
                 onEdit={onEdit}
                 onUpdate={onUpdate}
                 onCancelEdit={onCancelEdit}
+                filteredAccountCodes={filteredAccountCodes}
               />
             ))}
         </div>
@@ -1281,19 +1288,135 @@ export default function EnhancedDebugModal({
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
       
+      // Check if search term is a number (for amount search)
+      const isAmountSearch = !isNaN(parseFloat(searchTerm)) && searchTerm.trim() !== '' && isFinite(parseFloat(searchTerm))
+      const searchAmount = isAmountSearch ? parseFloat(searchTerm) : null
+      
+      console.log('=== AMOUNT SEARCH DEBUG ===')
+      console.log('Search term:', searchTerm)
+      console.log('Is amount search:', isAmountSearch)
+      console.log('Parsed amount:', searchAmount)
+      console.log('Sample accounts with amounts:', allAccountsFlat.slice(0, 3).map(acc => ({ 
+        codigo: acc.codigo, 
+        monto: acc.monto, 
+        type: typeof acc.monto 
+      })))
+      
       if (viewMode === 'flat') {
-        accountsToFilter = allAccountsFlat.filter(account => 
-          account.concepto.toLowerCase().includes(searchLower) ||
-          account.codigo.toLowerCase().includes(searchLower)
-        )
+        accountsToFilter = allAccountsFlat.filter(account => {
+          // Text search
+          const textMatch = account.concepto.toLowerCase().includes(searchLower) ||
+                           account.codigo.toLowerCase().includes(searchLower)
+          
+          // Amount search - improved with partial matching
+          let amountMatch = false
+          if (isAmountSearch && searchAmount !== null) {
+            const accountMonto = account.monto || 0
+            const absoluteSearchAmount = Math.abs(searchAmount)
+            const absoluteAccountMonto = Math.abs(accountMonto)
+            
+            // Convert numbers to strings for partial matching
+            const searchStr = searchTerm.replace(/[^0-9.]/g, '') // Remove non-numeric chars except dots
+            const accountMontoStr = Math.abs(accountMonto).toString()
+            
+            // Method 1: Exact match
+            if (accountMonto === searchAmount) {
+              amountMatch = true
+            }
+            // Method 2: Absolute value exact match
+            else if (absoluteAccountMonto === absoluteSearchAmount) {
+              amountMatch = true
+            }
+            // Method 3: Tolerance-based match
+            else if (Math.abs(accountMonto - searchAmount) <= Math.max(0.01, Math.abs(searchAmount) * 0.001)) {
+              amountMatch = true
+            }
+            // Method 4: Absolute tolerance-based match
+            else if (Math.abs(absoluteAccountMonto - absoluteSearchAmount) <= Math.max(0.01, absoluteSearchAmount * 0.001)) {
+              amountMatch = true
+            }
+            // Method 5: Partial string matching (new!)
+            else if (searchStr.length >= 3 && accountMontoStr.includes(searchStr)) {
+              amountMatch = true
+            }
+            // Method 6: Partial match with decimal handling
+            else if (searchStr.length >= 3) {
+              const searchWithoutDecimals = searchStr.split('.')[0]
+              const accountWithoutDecimals = accountMontoStr.split('.')[0]
+              if (accountWithoutDecimals.includes(searchWithoutDecimals) || 
+                  searchWithoutDecimals.includes(accountWithoutDecimals)) {
+                amountMatch = true
+              }
+            }
+          }
+          
+          if (isAmountSearch && searchAmount !== null && amountMatch) {
+            const searchStr = searchTerm.replace(/[^0-9.]/g, '')
+            const accountMontoStr = Math.abs(account.monto).toString()
+            console.log(`✅ MATCH - Account ${account.codigo}: monto=${account.monto}, search=${searchAmount}, searchStr=${searchStr}, accountStr=${accountMontoStr}`)
+          }
+          
+          return textMatch || amountMatch
+        })
       } else {
         // For hierarchy view, include top-level accounts that contain matching children
         const matchingAccountCodes = new Set(
           allAccountsFlat
-            .filter(account => 
-              account.concepto.toLowerCase().includes(searchLower) ||
-              account.codigo.toLowerCase().includes(searchLower)
-            )
+            .filter(account => {
+              // Text search
+              const textMatch = account.concepto.toLowerCase().includes(searchLower) ||
+                               account.codigo.toLowerCase().includes(searchLower)
+              
+              // Amount search - improved with partial matching
+              let amountMatch = false
+              if (isAmountSearch && searchAmount !== null) {
+                const accountMonto = account.monto || 0
+                const absoluteSearchAmount = Math.abs(searchAmount)
+                const absoluteAccountMonto = Math.abs(accountMonto)
+                
+                // Convert numbers to strings for partial matching
+                const searchStr = searchTerm.replace(/[^0-9.]/g, '') // Remove non-numeric chars except dots
+                const accountMontoStr = Math.abs(accountMonto).toString()
+                
+                // Method 1: Exact match
+                if (accountMonto === searchAmount) {
+                  amountMatch = true
+                }
+                // Method 2: Absolute value exact match
+                else if (absoluteAccountMonto === absoluteSearchAmount) {
+                  amountMatch = true
+                }
+                // Method 3: Tolerance-based match
+                else if (Math.abs(accountMonto - searchAmount) <= Math.max(0.01, Math.abs(searchAmount) * 0.001)) {
+                  amountMatch = true
+                }
+                // Method 4: Absolute tolerance-based match
+                else if (Math.abs(absoluteAccountMonto - absoluteSearchAmount) <= Math.max(0.01, absoluteSearchAmount * 0.001)) {
+                  amountMatch = true
+                }
+                // Method 5: Partial string matching (new!)
+                else if (searchStr.length >= 3 && accountMontoStr.includes(searchStr)) {
+                  amountMatch = true
+                }
+                // Method 6: Partial match with decimal handling
+                else if (searchStr.length >= 3) {
+                  const searchWithoutDecimals = searchStr.split('.')[0]
+                  const accountWithoutDecimals = accountMontoStr.split('.')[0]
+                  if (accountWithoutDecimals.includes(searchWithoutDecimals) || 
+                      searchWithoutDecimals.includes(accountWithoutDecimals)) {
+                    amountMatch = true
+                  }
+                }
+              }
+              
+              if (isAmountSearch && searchAmount !== null && amountMatch) {
+                const searchStr = searchTerm.replace(/[^0-9.]/g, '')
+                const accountMontoStr = Math.abs(account.monto).toString()
+                console.log(`✅ HIERARCHY MATCH - Account ${account.codigo}: monto=${account.monto}, search=${searchAmount}, searchStr=${searchStr}, accountStr=${accountMontoStr}`)
+              }
+              
+              return textMatch || amountMatch
+            })
             .map(account => account.codigo)
         )
         
@@ -1307,21 +1430,13 @@ export default function EnhancedDebugModal({
         
         accountsToFilter = hierarchicalAccounts.filter(includeAccount)
         
-        // Expand all accounts that contain matches for better visibility
-        const newExpanded = new Set(expandedAccounts)
-        const expandMatching = (accounts: HierarchicalAccount[]) => {
-          accounts.forEach(account => {
-            if (account.children.some(child => includeAccount(child))) {
-              newExpanded.add(account.codigo)
-              expandMatching(account.children)
-            }
-          })
-        }
-        expandMatching(accountsToFilter)
-        setExpandedAccounts(newExpanded)
+        // Note: Auto-expansion logic moved to a separate useEffect to avoid infinite loops
       }
       
       console.log('After search filter:', accountsToFilter.length)
+      if (isAmountSearch) {
+        console.log(`Amount search for ${searchAmount} found ${accountsToFilter.length} matches`)
+      }
     }
 
     // Apply status filter
@@ -1371,7 +1486,7 @@ export default function EnhancedDebugModal({
     console.log('Final filtered accounts:', accountsToFilter.length)
     
     return accountsToFilter
-  }, [hierarchicalAccounts, allAccountsFlat, searchTerm, selectedFilter, viewMode, expandedAccounts])
+  }, [hierarchicalAccounts, allAccountsFlat, searchTerm, selectedFilter, viewMode])
 
   // Calculate overall statistics
   const stats = useMemo(() => {
@@ -1390,6 +1505,94 @@ export default function EnhancedDebugModal({
       missingAccounts: data.length - allAccountsFlat.length
     }
   }, [allAccountsFlat, data])
+
+  // Auto-expand accounts when searching in hierarchy view
+  useEffect(() => {
+    if (searchTerm && viewMode === 'hierarchy') {
+      const searchLower = searchTerm.toLowerCase()
+      
+      // Check if search term is a number (for amount search)
+      const isAmountSearch = !isNaN(parseFloat(searchTerm)) && searchTerm.trim() !== '' && isFinite(parseFloat(searchTerm))
+      const searchAmount = isAmountSearch ? parseFloat(searchTerm) : null
+      
+      // Find all matching accounts
+      const matchingAccountCodes = new Set(
+        allAccountsFlat
+          .filter(account => {
+            // Text search
+            const textMatch = account.concepto.toLowerCase().includes(searchLower) ||
+                             account.codigo.toLowerCase().includes(searchLower)
+            
+            // Amount search - improved with partial matching
+            let amountMatch = false
+            if (isAmountSearch && searchAmount !== null) {
+              const accountMonto = account.monto || 0
+              const absoluteSearchAmount = Math.abs(searchAmount)
+              const absoluteAccountMonto = Math.abs(accountMonto)
+              
+              // Convert numbers to strings for partial matching
+              const searchStr = searchTerm.replace(/[^0-9.]/g, '') // Remove non-numeric chars except dots
+              const accountMontoStr = Math.abs(accountMonto).toString()
+              
+              // Method 1: Exact match
+              if (accountMonto === searchAmount) {
+                amountMatch = true
+              }
+              // Method 2: Absolute value exact match
+              else if (absoluteAccountMonto === absoluteSearchAmount) {
+                amountMatch = true
+              }
+              // Method 3: Tolerance-based match
+              else if (Math.abs(accountMonto - searchAmount) <= Math.max(0.01, Math.abs(searchAmount) * 0.001)) {
+                amountMatch = true
+              }
+              // Method 4: Absolute tolerance-based match
+              else if (Math.abs(absoluteAccountMonto - absoluteSearchAmount) <= Math.max(0.01, absoluteSearchAmount * 0.001)) {
+                amountMatch = true
+              }
+              // Method 5: Partial string matching (new!)
+              else if (searchStr.length >= 3 && accountMontoStr.includes(searchStr)) {
+                amountMatch = true
+              }
+              // Method 6: Partial match with decimal handling
+              else if (searchStr.length >= 3) {
+                const searchWithoutDecimals = searchStr.split('.')[0]
+                const accountWithoutDecimals = accountMontoStr.split('.')[0]
+                if (accountWithoutDecimals.includes(searchWithoutDecimals) || 
+                    searchWithoutDecimals.includes(accountWithoutDecimals)) {
+                  amountMatch = true
+                }
+              }
+            }
+            
+            return textMatch || amountMatch
+          })
+          .map(account => account.codigo)
+      )
+      
+      if (matchingAccountCodes.size > 0) {
+        const newExpanded = new Set(expandedAccounts)
+        
+        const expandMatching = (accounts: HierarchicalAccount[]) => {
+          accounts.forEach(account => {
+            // Check if this account or any of its children match
+            const hasMatchingChild = account.children.some(child => 
+              matchingAccountCodes.has(child.codigo) || 
+              child.children.some(grandchild => matchingAccountCodes.has(grandchild.codigo))
+            )
+            
+            if (hasMatchingChild || matchingAccountCodes.has(account.codigo)) {
+              newExpanded.add(account.codigo)
+              expandMatching(account.children)
+            }
+          })
+        }
+        
+        expandMatching(hierarchicalAccounts)
+        setExpandedAccounts(newExpanded)
+      }
+    }
+  }, [searchTerm, viewMode, allAccountsFlat, hierarchicalAccounts])
 
   const handleAccountUpdate = useCallback(async (codigo: string, updates: Partial<DebugDataRow>) => {
     const newData = data.map(row => {
@@ -1466,7 +1669,7 @@ export default function EnhancedDebugModal({
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Buscar cuenta o concepto..."
+                  placeholder="Buscar cuenta, concepto o monto (ej: 3056.76)..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -1539,23 +1742,37 @@ export default function EnhancedDebugModal({
                       onEdit={setEditingAccountId}
                       onUpdate={handleAccountUpdate}
                       onCancelEdit={() => setEditingAccountId(null)}
+                      filteredAccountCodes={new Set(filteredAccounts.map(acc => acc.codigo))}
                     />
                   ))
                 ) : (
                   // Hierarchical view
-                  filteredAccounts.map(account => (
-                    <HierarchicalAccountRow
-                      key={account.codigo}
-                      account={account}
-                      level={0}
-                      expandedAccounts={expandedAccounts}
-                      onToggleExpand={handleToggleExpand}
-                      editingAccountId={editingAccountId}
-                      onEdit={setEditingAccountId}
-                      onUpdate={handleAccountUpdate}
-                      onCancelEdit={() => setEditingAccountId(null)}
-                    />
-                  ))
+                  (() => {
+                    // Create a set of all filtered account codes for efficient lookup
+                    const filteredCodes = new Set<string>()
+                    const addCodesRecursively = (accounts: HierarchicalAccount[]) => {
+                      accounts.forEach(account => {
+                        filteredCodes.add(account.codigo)
+                        addCodesRecursively(account.children)
+                      })
+                    }
+                    addCodesRecursively(filteredAccounts)
+                    
+                    return filteredAccounts.map(account => (
+                      <HierarchicalAccountRow
+                        key={account.codigo}
+                        account={account}
+                        level={0}
+                        expandedAccounts={expandedAccounts}
+                        onToggleExpand={handleToggleExpand}
+                        editingAccountId={editingAccountId}
+                        onEdit={setEditingAccountId}
+                        onUpdate={handleAccountUpdate}
+                        onCancelEdit={() => setEditingAccountId(null)}
+                        filteredAccountCodes={filteredCodes}
+                      />
+                    ))
+                  })()
                 )}
                 
                 {filteredAccounts.length === 0 && (

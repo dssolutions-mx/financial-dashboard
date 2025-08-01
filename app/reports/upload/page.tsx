@@ -71,9 +71,14 @@ export default function UploadPage() {
         validation
       })
 
+      // Enhanced toast message with new classifications info
+      const newClassificationsInfo = savedReport.newClassificationsAdded && savedReport.newClassificationsAdded > 0
+        ? ` Se agregaron ${savedReport.newClassificationsAdded} nuevas clasificaciones automáticamente.`
+        : '';
+
       toast({
         title: "Archivo cargado exitosamente",
-        description: `Se procesaron ${processedData.length} registros correctamente.`,
+        description: `Se procesaron ${processedData.length} registros correctamente.${newClassificationsInfo}`,
         variant: "default"
       })
 

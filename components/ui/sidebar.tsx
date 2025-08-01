@@ -99,7 +99,7 @@ const navigationSections: NavigationSection[] = [
       {
         id: "operational-costs",
         icon: Calculator,
-        label: "Costos Operativos",
+        label: "Costo Operativo",
         href: "/analytics/operational-costs",
       },
       {
