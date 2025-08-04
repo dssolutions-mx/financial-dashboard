@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { Settings, Edit3, History, AlertTriangle, TrendingUp, Database, Upload, Download, Search } from 'lucide-react'
+import { Settings, Edit3, AlertTriangle, TrendingUp, Database, Upload, Download, Search, Calendar } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 
@@ -52,7 +52,6 @@ export default function ClassificationRulesManager() {
   const [filterActive, setFilterActive] = useState<boolean | null>(null)
   const [selectedRule, setSelectedRule] = useState<ClassificationRule | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [editForm, setEditForm] = useState({
     tipo: '',
@@ -66,7 +65,6 @@ export default function ClassificationRulesManager() {
   const [subCategoriaOptions, setSubCategoriaOptions] = useState<string[]>(['Sin Subcategoría'])
   const [clasificacionOptions, setClasificacionOptions] = useState<string[]>(['Sin Clasificación'])
   const [applyRetroactively, setApplyRetroactively] = useState(true)
-  const [classificationHistory, setClassificationHistory] = useState<any[]>([])
   const [isProcessingUpdate, setIsProcessingUpdate] = useState(false)
   
   const { toast } = useToast()
@@ -207,22 +205,6 @@ export default function ClassificationRulesManager() {
     setIsEditModalOpen(true)
   }
 
-  const handleViewHistory = async (rule: ClassificationRule) => {
-    try {
-      setSelectedRule(rule)
-      const history = await classificationService.getClassificationHistory(rule.account_code)
-      setClassificationHistory(history)
-      setIsHistoryModalOpen(true)
-    } catch (error) {
-      console.error('Error loading classification history:', error)
-      toast({
-        title: "Error",
-        description: "No se pudo cargar el historial de clasificación",
-        variant: "destructive"
-      })
-    }
-  }
-
   const handleSaveEdit = async () => {
     if (!selectedRule || !editForm.reason.trim()) {
       toast({
@@ -279,7 +261,9 @@ export default function ClassificationRulesManager() {
     return new Date(dateString).toLocaleDateString('es-MX', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     })
   }
 
@@ -347,8 +331,6 @@ export default function ClassificationRulesManager() {
             </div>
           </CardContent>
         </Card>
-        
-
         
         <Card>
           <CardContent className="p-4">
@@ -448,7 +430,8 @@ export default function ClassificationRulesManager() {
                         {getActiveStatusBadge(rule.is_active, rule.applies_to_reports)}
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-3 w-3 text-gray-400" />
                           {formatDate(rule.last_modified)}
                         </div>
                       </TableCell>
@@ -462,15 +445,6 @@ export default function ClassificationRulesManager() {
                           >
                             <Edit3 className="h-3 w-3" />
                             Editar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleViewHistory(rule)}
-                            className="flex items-center gap-1"
-                          >
-                            <History className="h-3 w-3" />
-                            Historial
                           </Button>
                         </div>
                       </TableCell>
@@ -654,74 +628,6 @@ export default function ClassificationRulesManager() {
               disabled={isProcessingUpdate || !editForm.reason.trim()}
             >
               {isProcessingUpdate ? 'Procesando...' : 'Aplicar Cambios'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Classification History Modal */}
-      <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Historial de Clasificación - {selectedRule?.account_code}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            {classificationHistory.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Reporte</TableHead>
-                    <TableHead>Monto</TableHead>
-                    <TableHead>Clasificación</TableHead>
-                    <TableHead>Aplicado Por</TableHead>
-                    <TableHead>Origen</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {classificationHistory.map((entry, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{formatDate(entry.appliedAt)}</TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{entry.reportName}</div>
-                          <div className="text-xs text-gray-500">{formatDate(entry.reportDate)}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatCurrency(entry.amount)}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{entry.classification.clasificacion}</div>
-                          <div className="text-xs text-gray-500">
-                            {entry.classification.tipo} → {entry.classification.categoria_1}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{entry.appliedBy}</TableCell>
-                      <TableCell>
-                        <Badge variant={entry.source === 'manual' ? 'default' : 'secondary'}>
-                          {entry.source === 'manual' ? 'Manual' : 
-                           entry.source === 'excel_import' ? 'Excel' :
-                           entry.source === 'retroactive_update' ? 'Retroactivo' : 'Patrón'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                No hay historial disponible para esta cuenta
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsHistoryModalOpen(false)}>
-              Cerrar
             </Button>
           </DialogFooter>
         </DialogContent>

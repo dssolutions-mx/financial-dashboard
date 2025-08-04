@@ -2,7 +2,6 @@
 
 import React, { useState } from "react"
 import FinancialDashboard from "@/components/financial/financial-dashboard"
-import FamilyBasedClassificationDashboard from "@/components/classification/FamilyBasedClassificationDashboard"
 import ClassificationRulesManager from "@/components/classification/ClassificationRulesManager"
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout"
 import { DebugDataRow } from "@/lib/services/excel-processor"
@@ -35,7 +34,7 @@ export default function DashboardPage() {
               Sistema de Gestión Financiera
             </CardTitle>
             <CardDescription>
-              Análisis financiero integral con clasificación inteligente familia por familia
+              Análisis financiero integral con gestión de reglas de clasificación
             </CardDescription>
           </CardHeader>
         </Card>
@@ -49,9 +48,9 @@ export default function DashboardPage() {
               <Badge variant="secondary" className="ml-2">Tradicional</Badge>
             </TabsTrigger>
             <TabsTrigger value="classification" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Clasificación Inteligente
-              <Badge variant="default" className="ml-2 bg-blue-600">Avanzado</Badge>
+              <Settings2 className="h-4 w-4" />
+              Gestión de Reglas
+              <Badge variant="default" className="ml-2 bg-blue-600">Configuración</Badge>
             </TabsTrigger>
           </TabsList>
           
@@ -77,46 +76,33 @@ export default function DashboardPage() {
             </Card>
           </TabsContent>
           
-          {/* Enhanced Classification Tab */}
+          {/* Rules Management Tab */}
           <TabsContent value="classification" className="mt-6">
-            <Tabs defaultValue="dashboard" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="dashboard">Dashboard de Análisis</TabsTrigger>
-                <TabsTrigger value="rules">Gestión de Reglas</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="dashboard" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Settings2 className="h-5 w-5" />
-                      Sistema de Clasificación Inteligente
-                    </CardTitle>
-                    <CardDescription>
-                      Validación familia por familia con detección automática de problemas y sugerencias inteligentes
-                    </CardDescription>
-                    <div className="flex gap-2 mt-2">
-                      <Badge variant="outline" className="text-xs">
-                        🔍 Detección de Sobre-clasificación
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        👥 Análisis de Hermanos Mixtos
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        🎯 Sugerencias Contextuales
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <FamilyBasedClassificationDashboard reportId={selectedReportId || undefined} />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="rules" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings2 className="h-5 w-5" />
+                  Gestión de Reglas de Clasificación
+                </CardTitle>
+                <CardDescription>
+                  Configuración y administración de reglas para la clasificación automática de transacciones
+                </CardDescription>
+                <div className="flex gap-2 mt-2">
+                  <Badge variant="outline" className="text-xs">
+                    ⚙️ Configuración de Reglas
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    📊 Gestión de Familias
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    🔄 Actualización Automática
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
                 <ClassificationRulesManager />
-              </TabsContent>
-            </Tabs>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 
@@ -150,12 +136,12 @@ export default function DashboardPage() {
               </div>
               <div className="text-right">
                 <div className="text-sm font-medium text-gray-700">
-                  {activeTab === 'financial' ? 'Vista Tradicional' : 'Análisis Inteligente'}
+                  {activeTab === 'financial' ? 'Vista Tradicional' : 'Gestión de Reglas'}
                 </div>
                 <div className="text-xs text-gray-500">
                   {activeTab === 'financial' 
-                    ? 'Cambiar a clasificación inteligente para análisis avanzado' 
-                    : 'Validación familia por familia activa'
+                    ? 'Cambiar a gestión de reglas para configurar clasificaciones' 
+                    : 'Configuración de reglas de clasificación activa'
                   }
                 </div>
               </div>
