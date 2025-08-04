@@ -7,7 +7,7 @@ export async function GET() {
     
     // Get all classification rules
     const { data: rules, error } = await supabase
-      .from('classification_rules')
+      .from('classifications')
       .select('*')
       .eq('is_active', true)
       .order('account_code')
@@ -17,23 +17,40 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch classification rules' }, { status: 500 })
     }
 
-    // Transform the data to include applies_to_reports count
+    // Get counts using raw SQL query since group by is not well-typed with the supabase client
+    const { data: counts, error: countError } = await supabase
+      .rpc('count_records_by_account_code')
+
+    if (countError) {
+      console.error('Database error fetching financial data counts:', countError)
+      // Non-fatal, we can continue without the counts
+    }
+
+    // Safely type our report counts
+    const reportCounts = counts?.reduce((acc: Record<string, number>, item: any) => {
+        // Using any here to handle the structure that comes back from the RPC
+        if (item && item.codigo) {
+          acc[item.codigo] = parseInt(item.count, 10) || 0;
+        }
+        return acc;
+    }, {} as Record<string, number>);
+
+
+    // Transform the data to the format expected by the frontend
     const transformedRules = (rules || []).map(rule => ({
       id: rule.id,
       account_code: rule.account_code,
       account_name: rule.account_name || rule.account_code,
-      tipo: rule.tipo,
-      categoria_1: rule.categoria_1,
-      sub_categoria: rule.sub_categoria,
-      clasificacion: rule.clasificacion,
-      hierarchy_level: rule.hierarchy_level,
-      family_code: rule.family_code,
-      effective_from: rule.effective_from,
-      effective_to: rule.effective_to,
-      created_by: rule.created_by,
-      approved_by: rule.approved_by,
+      tipo: rule.classification, // Mapped from 'classification'
+      categoria_1: rule.management_category, // Mapped from 'management_category'
+      sub_categoria: rule.sub_classification, // Mapped from 'sub_classification'
+      clasificacion: rule.sub_sub_classification, // Mapped from 'sub_sub_classification'
+      hierarchy_level: 4, // Defaulting to 4 as this info is not in this table
+      family_code: rule.account_code.substring(0, 9), // Derived from account_code
+      effective_from: rule.created_at,
+      created_by: 'system', // Placeholder
       is_active: rule.is_active,
-      applies_to_reports: 0, // TODO: Calculate from financial_data
+      applies_to_reports: reportCounts?.[rule.account_code] || 0,
       last_modified: rule.updated_at || rule.created_at
     }))
 

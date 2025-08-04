@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Settings, Edit3, History, AlertTriangle, TrendingUp, Database, Upload, Download, Search } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { FamilyAwareClassificationService } from '@/lib/services/family-aware-classification.service'
+
 
 interface ClassificationRule {
   id: string
@@ -25,12 +25,6 @@ interface ClassificationRule {
   categoria_1: string
   sub_categoria: string
   clasificacion: string
-  hierarchy_level: number
-  family_code: string
-  effective_from: string
-  effective_to?: string
-  created_by: string
-  approved_by?: string
   is_active: boolean
   applies_to_reports: number
   last_modified: string
@@ -47,6 +41,8 @@ interface RetroactiveUpdateRequest {
   applyRetroactively: boolean
   reason: string
 }
+
+import * as classificationService from '@/lib/services/classification-service-client'
 
 export default function ClassificationRulesManager() {
   const [rules, setRules] = useState<ClassificationRule[]>([])
@@ -65,12 +61,15 @@ export default function ClassificationRulesManager() {
     clasificacion: '',
     reason: ''
   })
+  const [tipoOptions] = useState<string[]>(['Ingresos', 'Egresos'])
+  const [categoria1Options, setCategoria1Options] = useState<string[]>(['Sin Categoría'])
+  const [subCategoriaOptions, setSubCategoriaOptions] = useState<string[]>(['Sin Subcategoría'])
+  const [clasificacionOptions, setClasificacionOptions] = useState<string[]>(['Sin Clasificación'])
   const [applyRetroactively, setApplyRetroactively] = useState(true)
   const [classificationHistory, setClassificationHistory] = useState<any[]>([])
   const [isProcessingUpdate, setIsProcessingUpdate] = useState(false)
   
   const { toast } = useToast()
-  const classificationService = new FamilyAwareClassificationService()
 
   // Load classification rules
   useEffect(() => {
@@ -85,13 +84,8 @@ export default function ClassificationRulesManager() {
       filtered = filtered.filter(rule => 
         rule.account_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
         rule.account_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rule.clasificacion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                 rule.family_code?.toLowerCase().includes(searchTerm.toLowerCase())
+        rule.clasificacion.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    }
-
-    if (filterLevel !== 'all') {
-      filtered = filtered.filter(rule => rule.hierarchy_level === parseInt(filterLevel))
     }
 
     if (filterActive !== null) {
@@ -100,6 +94,61 @@ export default function ClassificationRulesManager() {
 
     setFilteredRules(filtered)
   }, [rules, searchTerm, filterLevel, filterActive])
+  
+  // Load categorias1 when tipo changes in edit form
+  useEffect(() => {
+    const loadCategoria1 = async () => {
+      if (editForm.tipo) {
+        try {
+          const options = await classificationService.getCategoria1ForTipo(editForm.tipo)
+          setCategoria1Options(options)
+        } catch (error) {
+          console.error('Error loading categoria1 options:', error)
+          setCategoria1Options(['Sin Categoría'])
+        }
+      }
+    }
+    
+    loadCategoria1()
+  }, [editForm.tipo])
+  
+  // Load sub categorias when categoria_1 changes in edit form
+  useEffect(() => {
+    const loadSubCategorias = async () => {
+      if (editForm.tipo && editForm.categoria_1) {
+        try {
+          const options = await classificationService.getSubCategoriasForCategoria1(editForm.tipo, editForm.categoria_1)
+          setSubCategoriaOptions(options)
+        } catch (error) {
+          console.error('Error loading subcategoria options:', error)
+          setSubCategoriaOptions(['Sin Subcategoría'])
+        }
+      }
+    }
+    
+    loadSubCategorias()
+  }, [editForm.tipo, editForm.categoria_1])
+  
+  // Load clasificaciones when sub_categoria changes in edit form
+  useEffect(() => {
+    const loadClasificaciones = async () => {
+      if (editForm.tipo && editForm.categoria_1 && editForm.sub_categoria) {
+        try {
+          const options = await classificationService.getClasificacionesForSubCategoria(
+            editForm.tipo,
+            editForm.categoria_1,
+            editForm.sub_categoria
+          )
+          setClasificacionOptions(options)
+        } catch (error) {
+          console.error('Error loading clasificacion options:', error)
+          setClasificacionOptions(['Sin Clasificación'])
+        }
+      }
+    }
+    
+    loadClasificaciones()
+  }, [editForm.tipo, editForm.categoria_1, editForm.sub_categoria])
 
   const loadClassificationRules = async () => {
     try {
@@ -118,7 +167,7 @@ export default function ClassificationRulesManager() {
     }
   }
 
-  const handleEditRule = (rule: ClassificationRule) => {
+  const handleEditRule = async (rule: ClassificationRule) => {
     setSelectedRule(rule)
     setEditForm({
       tipo: rule.tipo,
@@ -127,6 +176,34 @@ export default function ClassificationRulesManager() {
       clasificacion: rule.clasificacion,
       reason: ''
     })
+
+    try {
+      // Load options for dropdown menus
+      const categoria1 = await classificationService.getCategoria1ForTipo(rule.tipo)
+      setCategoria1Options(categoria1)
+      
+      if (rule.tipo && rule.categoria_1) {
+        const subCategoria = await classificationService.getSubCategoriasForCategoria1(rule.tipo, rule.categoria_1)
+        setSubCategoriaOptions(subCategoria)
+      }
+      
+      if (rule.tipo && rule.categoria_1 && rule.sub_categoria) {
+        const clasificacion = await classificationService.getClasificacionesForSubCategoria(
+          rule.tipo, 
+          rule.categoria_1, 
+          rule.sub_categoria
+        )
+        setClasificacionOptions(clasificacion)
+      }
+    } catch (error) {
+      console.error('Error loading classification options:', error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las opciones de clasificación",
+        variant: "destructive"
+      })
+    }
+    
     setIsEditModalOpen(true)
   }
 
@@ -176,7 +253,7 @@ export default function ClassificationRulesManager() {
       toast({
         title: "Clasificación actualizada",
         description: applyRetroactively 
-          ? `Se actualizaron ${result.affectedRecords} registros en ${result.affectedReports.length} reportes`
+          ? `Se actualizaron ${result.impact.affectedRecords} registros en ${result.impact.affectedReports.length} reportes con impacto financiero de ${formatCurrency(result.impact.totalFinancialImpact)}`
           : "Regla actualizada exitosamente",
         duration: 5000
       })
@@ -215,19 +292,7 @@ export default function ClassificationRulesManager() {
     }).format(amount)
   }
 
-  const getHierarchyLevelBadge = (level: number) => {
-    const colors = {
-      1: 'bg-blue-100 text-blue-800',
-      2: 'bg-green-100 text-green-800',
-      3: 'bg-yellow-100 text-yellow-800',
-      4: 'bg-purple-100 text-purple-800'
-    }
-    return (
-      <Badge className={`${colors[level as keyof typeof colors]} text-xs`}>
-        Nivel {level}
-      </Badge>
-    )
-  }
+
 
   const getActiveStatusBadge = (isActive: boolean, appliesTo: number) => {
     return isActive ? (
@@ -283,19 +348,7 @@ export default function ClassificationRulesManager() {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Familias Cubiertas</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {new Set(rules.map(r => r.family_code)).size}
-                </p>
-              </div>
-              <Database className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
+
         
         <Card>
           <CardContent className="p-4">
@@ -322,7 +375,7 @@ export default function ClassificationRulesManager() {
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="search"
-                  placeholder="Buscar por código, nombre, familia o clasificación..."
+                  placeholder="Buscar por código, nombre o clasificación..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -331,22 +384,6 @@ export default function ClassificationRulesManager() {
             </div>
             
             <div className="flex gap-4">
-              <div>
-                <Label htmlFor="level-filter">Nivel de Jerarquía</Label>
-                <Select value={filterLevel} onValueChange={setFilterLevel}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los niveles</SelectItem>
-                    <SelectItem value="1">Nivel 1</SelectItem>
-                    <SelectItem value="2">Nivel 2</SelectItem>
-                    <SelectItem value="3">Nivel 3</SelectItem>
-                    <SelectItem value="4">Nivel 4</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
               <div>
                 <Label htmlFor="active-filter">Estado</Label>
                 <Select value={filterActive === null ? 'all' : filterActive.toString()} onValueChange={(value) => setFilterActive(value === 'all' ? null : value === 'true')}>
@@ -382,8 +419,6 @@ export default function ClassificationRulesManager() {
                   <TableRow>
                     <TableHead>Código de Cuenta</TableHead>
                     <TableHead>Nombre</TableHead>
-                    <TableHead>Nivel</TableHead>
-                    <TableHead>Familia</TableHead>
                     <TableHead>Clasificación</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead>Última Modificación</TableHead>
@@ -402,12 +437,6 @@ export default function ClassificationRulesManager() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {getHierarchyLevelBadge(rule.hierarchy_level)}
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono text-xs">{rule.family_code}</span>
-                      </TableCell>
-                      <TableCell>
                         <div className="space-y-1">
                           <div className="text-sm font-medium">{rule.clasificacion}</div>
                           <div className="text-xs text-gray-500">
@@ -421,11 +450,6 @@ export default function ClassificationRulesManager() {
                       <TableCell>
                         <div className="text-sm">
                           {formatDate(rule.last_modified)}
-                          {rule.created_by && (
-                            <div className="text-xs text-gray-500">
-                              por {rule.created_by}
-                            </div>
-                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -488,38 +512,96 @@ export default function ClassificationRulesManager() {
                 <div className="space-y-3">
                   <div>
                     <Label htmlFor="edit-tipo">Tipo</Label>
-                    <Input
-                      id="edit-tipo"
-                      value={editForm.tipo}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, tipo: e.target.value }))}
-                    />
+                    <Select 
+                      value={editForm.tipo} 
+                      onValueChange={(value) => setEditForm(prev => ({ 
+                        ...prev, 
+                        tipo: value,
+                        categoria_1: '',
+                        sub_categoria: '',
+                        clasificacion: ''
+                      }))}
+                    >
+                      <SelectTrigger id="edit-tipo">
+                        <SelectValue placeholder="Seleccionar Tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tipoOptions.map(option => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div>
                     <Label htmlFor="edit-categoria-1">Categoría 1</Label>
-                    <Input
-                      id="edit-categoria-1"
-                      value={editForm.categoria_1}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, categoria_1: e.target.value }))}
-                    />
+                    <Select 
+                      value={editForm.categoria_1} 
+                      onValueChange={(value) => setEditForm(prev => ({ 
+                        ...prev, 
+                        categoria_1: value,
+                        sub_categoria: '',
+                        clasificacion: ''
+                      }))}
+                      disabled={!editForm.tipo || tipoOptions.length === 0}
+                    >
+                      <SelectTrigger id="edit-categoria-1">
+                        <SelectValue placeholder="Seleccionar Categoría 1" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categoria1Options.map(option => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div>
                     <Label htmlFor="edit-sub-categoria">Sub Categoría</Label>
-                    <Input
-                      id="edit-sub-categoria"
-                      value={editForm.sub_categoria}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, sub_categoria: e.target.value }))}
-                    />
+                    <Select 
+                      value={editForm.sub_categoria} 
+                      onValueChange={(value) => setEditForm(prev => ({ 
+                        ...prev, 
+                        sub_categoria: value,
+                        clasificacion: ''
+                      }))}
+                      disabled={!editForm.categoria_1 || subCategoriaOptions.length === 0}
+                    >
+                      <SelectTrigger id="edit-sub-categoria">
+                        <SelectValue placeholder="Seleccionar Sub Categoría" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subCategoriaOptions.map(option => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div>
                     <Label htmlFor="edit-clasificacion">Clasificación</Label>
-                    <Input
-                      id="edit-clasificacion"
-                      value={editForm.clasificacion}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, clasificacion: e.target.value }))}
-                    />
+                    <Select 
+                      value={editForm.clasificacion} 
+                      onValueChange={(value) => setEditForm(prev => ({ ...prev, clasificacion: value }))}
+                      disabled={!editForm.sub_categoria || clasificacionOptions.length === 0}
+                    >
+                      <SelectTrigger id="edit-clasificacion">
+                        <SelectValue placeholder="Seleccionar Clasificación" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clasificacionOptions.map(option => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>

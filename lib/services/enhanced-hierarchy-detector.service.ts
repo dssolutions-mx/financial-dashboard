@@ -27,7 +27,15 @@ export class ImprovedHierarchyDetector {
    * Extrae la familia de la cuenta (primeros dos segmentos)
    */
   private extractFamily(codigo: string): string {
+    // Protección contra valores undefined o null
+    if (!codigo) {
+      return '0000-0000'; // Valor predeterminado seguro
+    }
+    
     const parts = codigo.split('-');
+    if (parts.length < 2) {
+      return `${parts[0] || '0000'}-0000`;
+    }
     return `${parts[0]}-${parts[1]}`;
   }
 
@@ -41,9 +49,30 @@ export class ImprovedHierarchyDetector {
     nivel4: string;
     family: string;
   } {
+    // Protección contra valores undefined o null
+    if (!codigo) {
+      console.warn(`Código inválido (undefined o null): ${codigo}`);
+      // Devolver estructura predeterminada para evitar errores en cascada
+      return {
+        nivel1: '0000',
+        nivel2: '0000',
+        nivel3: '000',
+        nivel4: '000',
+        family: '0000-0000'
+      };
+    }
+    
     const parts = codigo.split('-');
     if (parts.length !== 4) {
-      throw new Error(`Código inválido: ${codigo}`);
+      console.warn(`Código con formato inválido: ${codigo}`);
+      // Devolver estructura predeterminada para evitar errores en cascada
+      return {
+        nivel1: parts[0] || '0000',
+        nivel2: '0000',
+        nivel3: '000',
+        nivel4: '000',
+        family: `${parts[0] || '0000'}-0000`
+      };
     }
     
     return {
@@ -227,7 +256,25 @@ export class ImprovedHierarchyDetector {
     level: number;
     confidence: number;
   } {
+    // Protección contra undefined o null
+    if (!codigo) {
+      console.warn('analyzeByZeroPattern: código undefined o null');
+      return { level: 4, confidence: 0.5 }; // Default seguro
+    }
+    
+    // Validar formato del código antes de dividirlo
+    if (!codigo.includes('-')) {
+      console.warn(`analyzeByZeroPattern: formato de código inválido: ${codigo}`);
+      return { level: 4, confidence: 0.5 }; // Default seguro
+    }
+    
     const parts = codigo.split('-');
+    
+    // Validar que hay suficientes partes
+    if (parts.length !== 4) {
+      console.warn(`analyzeByZeroPattern: código no tiene 4 partes: ${codigo}, tiene ${parts.length}`);
+      return { level: 4, confidence: 0.5 }; // Default seguro
+    }
     
     // Lógica original del algoritmo
     let level = 4; // Default: cuenta detalle

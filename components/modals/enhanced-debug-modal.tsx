@@ -125,6 +125,12 @@ interface HierarchicalAccount {
 
 // MEJORADO: Usar el algoritmo mejorado de jerarquía
 const getAccountLevel = (codigo: string): number => {
+  // Protección contra valores undefined o null
+  if (!codigo) {
+    console.warn('Intento de obtener nivel para código undefined o null')
+    return 4 // Default to leaf/detail level
+  }
+  
   try {
     const accountCode = { codigo, concepto: '', monto: 0, tipo: '' }
     const hierarchyResults = improvedHierarchyDetector.buildHierarchy([accountCode])
@@ -136,6 +142,12 @@ const getAccountLevel = (codigo: string): number => {
 }
 
 const getParentCode = (codigo: string): string | null => {
+  // Protección contra valores undefined o null
+  if (!codigo) {
+    console.warn('Intento de obtener padre para código undefined o null')
+    return null
+  }
+  
   try {
     const accountCode = { codigo, concepto: '', monto: 0, tipo: '' }
     const hierarchyResults = improvedHierarchyDetector.buildHierarchy([accountCode])
@@ -152,11 +164,14 @@ const isDetailAccount = (codigo: string): boolean => {
 
 // Helper function to check if row is a hierarchy parent row
 const isHierarchyRow = (codigo: string): boolean => {
+  // Protección contra valores undefined o null
+  if (!codigo) return false
+  
   // ONLY the main total accounts are hierarchy (not editable)
   if (codigo === '4100-0000-000-000' || codigo === '5000-0000-000-000') return true
   
   // Virtual parents (created for missing hierarchy accounts)
-  if (codigo.startsWith('virtual-')) return true
+  if (typeof codigo === 'string' && codigo.startsWith('virtual-')) return true
   
   // ALL other accounts (Level 2, 3, 4) can be classified and edited
   return false
@@ -164,6 +179,11 @@ const isHierarchyRow = (codigo: string): boolean => {
 
 // Classification status checker - allows unclassified items
 const getClassificationStatus = (row: DebugDataRow) => {
+  // Protección contra valores undefined o null
+  if (!row) {
+    return { status: 'unclassified', message: 'Sin datos', color: 'gray', icon: '❓' }
+  }
+  
   const hasValidTipo = row.Tipo && row.Tipo !== "Indefinido"
   const hasValidCategoria1 = row['Categoria 1'] && row['Categoria 1'] !== "Sin Categoría"
   
@@ -174,7 +194,7 @@ const getClassificationStatus = (row: DebugDataRow) => {
     return { status: 'partial', message: 'Parcial', color: 'yellow', icon: '⚡' }
   } else if (!hasValidTipo) {
     return { status: 'untyped', message: 'Sin tipo', color: 'red', icon: '❌' }
-    } else {
+  } else {
     return { status: 'unclassified', message: 'Sin clasificar', color: 'gray', icon: '❓' }
   }
 }
@@ -694,6 +714,12 @@ const buildHierarchicalStructureFallback = (data: DebugDataRow[]): HierarchicalA
   
   // Create all accounts first
   data.forEach(row => {
+    // Verificar que el código existe antes de procesarlo
+    if (!row || !row.Codigo) {
+      console.warn('Encontrada fila sin código válido:', row)
+      return // Skip this row
+    }
+    
     const level = getAccountLevel(row.Codigo)
     const status = getClassificationStatus(row)
     const isHierarchy = isHierarchyRow(row.Codigo)

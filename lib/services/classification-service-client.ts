@@ -1,3 +1,5 @@
+// This file was partially removed, so I will re-create it with the new functions
+
 import { createClient } from '../supabase/client';
 
 export interface DatabaseClassification {
@@ -365,4 +367,47 @@ export async function detectAndAddMissingClassifications(processedData: any[]): 
     newClassifications,
     totalAdded: newClassifications.length
   };
-} 
+}
+
+export async function getAllClassificationRules() {
+  const response = await fetch('/api/classification/rules');
+  if (!response.ok) {
+    throw new Error('Failed to fetch classification rules');
+  }
+  const data = await response.json();
+  return data.rules;
+}
+
+export async function getClassificationHistory(accountCode: string) {
+  const response = await fetch('/api/classification/history', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ accountCode }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch classification history');
+  }
+  const data = await response.json();
+  return data.history;
+}
+
+export async function updateClassificationRule(
+  ruleId: string,
+  updates: any,
+  userId: string,
+  applyRetroactively: boolean
+) {
+  const response = await fetch('/api/classification/update-rule', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ruleId, updates, userId, applyRetroactively }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to update classification rule');
+  }
+  return response.json();
+}

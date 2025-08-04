@@ -205,6 +205,37 @@ export class SupabaseStorageService {
     return data || []
   }
 
+  // Update financial data classification
+  async updateFinancialDataClassification(
+    id: string,
+    updates: Partial<FinancialDataRow>
+  ): Promise<FinancialDataRow> {
+    const { data, error } = await this.supabase
+      .from('financial_data')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  // Update financial data classification by code
+  async updateFinancialDataClassificationByCode(
+    accountCode: string,
+    updates: Partial<FinancialDataRow>
+  ): Promise<FinancialDataRow[]> {
+    const { data, error } = await this.supabase
+      .from('financial_data')
+      .update(updates)
+      .eq('codigo', accountCode)
+      .select()
+
+    if (error) throw error
+    return data
+  }
+
   // Get classifications for reclassification module
   async getClassifications(): Promise<Classification[]> {
     const { data, error } = await this.supabase
@@ -231,6 +262,64 @@ export class SupabaseStorageService {
 
     if (error) throw error
     return data
+  }
+
+  // Update classification by code
+  async updateClassificationByCode(
+    accountCode: string,
+    updates: Partial<Classification>
+  ): Promise<Classification> {
+    // Verificar que el código de cuenta es válido
+    if (!accountCode) {
+      throw new Error('El código de cuenta es requerido');
+    }
+    
+    try {
+      // Primero, intentamos actualizar la clasificación
+      const { data, error } = await this.supabase
+        .from('classifications')
+        .update(updates)
+        .eq('account_code', accountCode)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error al actualizar clasificación:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        console.warn(`No se encontró clasificación para el código: ${accountCode}. Creando nueva.`);
+        
+        // Si no existe, creamos una nueva clasificación
+        const newClassification = {
+          account_code: accountCode,
+          account_name: 'Cuenta sin nombre', // Nombre genérico
+          management_category: updates.management_category || '',
+          classification: updates.classification || '',
+          sub_classification: updates.sub_classification || '',
+          is_active: true
+        };
+        
+        const { data: createdData, error: createError } = await this.supabase
+          .from('classifications')
+          .insert(newClassification)
+          .select()
+          .single();
+          
+        if (createError) {
+          console.error('Error al crear nueva clasificación:', createError);
+          throw createError;
+        }
+        
+        return createdData;
+      }
+      
+      return data;
+    } catch (err) {
+      console.error('Error en updateClassificationByCode:', err);
+      throw err;
+    }
   }
 
   // Add new classification

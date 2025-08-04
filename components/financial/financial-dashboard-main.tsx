@@ -12,10 +12,10 @@ import EnhancedDebugModal from "@/components/modals/enhanced-debug-modal"
 import ValidationModal from "@/components/modals/validation-modal"
 import VolumeInputModal from "@/components/modals/volume-input-modal"
 import CashSalesInputModal from "@/components/modals/cash-sales-input-modal"
-import FamilyAwareClassificationModal from "@/components/classification/FamilyAwareClassificationModal"
+import { ReclassificationModal } from "@/components/modals/ReclassificationModal"
 import ReportSelector from "@/components/reports/report-selector"
 // Family validation imports removed - no longer needed
-import { FamilyAwareClassificationService, Classification } from "@/lib/services/family-aware-classification.service"
+
 import { getCategoriesInOrder } from "@/lib/services/classification-service-client"
 
 interface FinancialDashboardMainProps {
@@ -146,15 +146,12 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
   const [isLoadingCashSales, setIsLoadingCashSales] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   
-  // Enhanced Classification System state
-  const [isClassificationModalOpen, setIsClassificationModalOpen] = useState(false)
-  const [selectedAccountForClassification, setSelectedAccountForClassification] = useState<{
+  const [isReclassificationModalOpen, setIsReclassificationModalOpen] = useState(false)
+  const [selectedAccountForReclassification, setSelectedAccountForReclassification] = useState<{
     code: string;
     name: string;
   } | null>(null)
-  // Family validation state removed - no longer needed
-  // Family validation state removed - no longer needed
-  
+
   const storageService = new SupabaseStorageService()
   const { toast } = useToast()
 
@@ -616,47 +613,15 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
 
   // Family validation removed - no longer needed
 
-  const handleAccountClassification = useCallback((accountCode: string, accountName: string) => {
-    setSelectedAccountForClassification({ code: accountCode, name: accountName })
-    setIsClassificationModalOpen(true)
+
+
+
+
+
+  const handleReclassification = useCallback((accountCode: string, accountName: string) => {
+    setSelectedAccountForReclassification({ code: accountCode, name: accountName })
+    setIsReclassificationModalOpen(true)
   }, [])
-
-  const handleClassificationSave = useCallback(async (result: { classification: Classification; impact: any }) => {
-    try {
-      // Apply classification to the current data
-      const updatedData = data.map(row => {
-        if (row.Codigo === selectedAccountForClassification?.code) {
-          return {
-            ...row,
-            Tipo: result.classification.tipo,
-            'Categoria 1': result.classification.categoria_1,
-            'Sub categoria': result.classification.sub_categoria,
-            Clasificacion: result.classification.clasificacion
-          }
-        }
-        return row
-      })
-
-      setData(updatedData)
-      onDataUpdate(updatedData)
-      
-      toast({
-        title: "Clasificación aplicada",
-        description: `Cuenta ${selectedAccountForClassification?.code} clasificada exitosamente`,
-      })
-
-      // Family validation removed - no longer needed
-    } catch (error) {
-      console.error('Error applying classification:', error)
-      toast({
-        title: "Error",
-        description: "No se pudo aplicar la clasificación",
-        variant: "destructive"
-      })
-    }
-  }, [data, onDataUpdate, selectedAccountForClassification])
-
-
 
   // File upload handler
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1299,7 +1264,7 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
                                               <div className="text-gray-600 dark:text-gray-400 leading-tight">{(cuentaData as any).concepto}</div>
                                             </div>
                                             <button
-                                              onClick={() => handleAccountClassification((cuentaData as any).codigo, (cuentaData as any).concepto)}
+                                              onClick={() => handleReclassification((cuentaData as any).codigo, (cuentaData as any).concepto)}
                                               className="opacity-0 group-hover:opacity-100 transition-opacity bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs px-2 py-1 rounded flex items-center gap-1"
                                               title="Clasificar con IA"
                                             >
@@ -1435,20 +1400,60 @@ export function FinancialDashboardMain({ initialData, onDataUpdate, onReportIdCh
         initialData={cashSalesData}
       />
 
-      {/* Family-Aware Classification Modal */}
-      {selectedAccountForClassification && (
-        <FamilyAwareClassificationModal
-          isOpen={isClassificationModalOpen}
-          accountCode={selectedAccountForClassification.code}
-          accountName={selectedAccountForClassification.name}
-          reportId={selectedReportId || ''}
-          onClose={() => {
-            setIsClassificationModalOpen(false)
-            setSelectedAccountForClassification(null)
-          }}
-          onSave={handleClassificationSave}
-        />
-      )}
+
+
+      <ReclassificationModal
+        isOpen={isReclassificationModalOpen}
+        onClose={() => setIsReclassificationModalOpen(false)}
+        onSave={async (newClassification) => {
+          if (!selectedAccountForReclassification) return
+
+          try {
+            await storageService.updateClassificationByCode(
+              selectedAccountForReclassification.code,
+              {
+                management_category: newClassification.management_category,
+                classification: newClassification.classification,
+                sub_classification: newClassification.sub_classification,
+              }
+            )
+
+            // Refrescar los datos después de la reclasificación
+            if (selectedReportId) {
+              const updatedData = await storageService.getFinancialData(selectedReportId)
+              
+              // Asegurar que los datos tienen los campos correctos
+              const processedData = updatedData.map(row => ({
+                ...row,
+                'Categoria 1': row.categoria_1 || 'Sin Categoría',
+                'Sub categoria': row.sub_categoria || 'Sin Subcategoría',
+                'Clasificacion': row.clasificacion || 'Sin Clasificación',
+                'Codigo': row.codigo, // Asegurar que este campo existe
+                'Tipo': row.tipo || 'Indefinido',
+              }))
+              
+              setData(processedData as any[])
+              onDataUpdate(processedData as any)
+            }
+            
+            toast({
+              title: "Éxito",
+              description: "La cuenta se ha reclasificado correctamente.",
+            })
+          } catch (error) {
+            console.error("Error reclasificando cuenta:", error)
+            toast({
+              title: "Error",
+              description: "No se pudo reclasificar la cuenta.",
+              variant: "destructive",
+            })
+          } finally {
+            setIsReclassificationModalOpen(false)
+          }
+        }}
+        accountCode={selectedAccountForReclassification?.code || ""}
+        accountName={selectedAccountForReclassification?.name || ""}
+      />
 
       <ValidationModal
         isOpen={isValidationModalOpen}
