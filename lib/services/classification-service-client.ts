@@ -331,41 +331,103 @@ export async function detectAndAddMissingClassifications(processedData: any[]): 
 }> {
   const supabase = createClient();
   const newClassifications: UnifiedClassification[] = [];
-  
+
   // Get all existing account codes
   const { data: existingClassifications } = await supabase
     .from('classifications')
     .select('account_code')
     .eq('is_active', true);
-  
+
   const existingCodes = new Set(existingClassifications?.map(c => c.account_code) || []);
-  
-  // Find accounts that don't exist in classifications
-  const missingAccounts = processedData
+
+  // Build a map of missing accounts aggregating the strongest (by monto absoluto) defined classification per code
+  type MissingInfo = {
+    code: string;
+    name: string;
+    weight: number; // suma de |Monto| para priorizar la variante dominante
+    managementCategory?: string;
+    classification?: string;
+    subClassification?: string;
+    subSubClassification?: string;
+  };
+
+  const missingAccounts: Map<string, MissingInfo> = processedData
     .filter(row => !existingCodes.has(row.Codigo))
-    .reduce((acc, row) => {
-      // Use a Map to avoid duplicates by account code
-      acc.set(row.Codigo, {
-        code: row.Codigo,
-        name: row.Concepto || 'Concepto no disponible'
-      });
+    .reduce((acc: Map<string, MissingInfo>, row: any) => {
+      const code: string = row.Codigo;
+      const name: string = row.Concepto || 'Concepto no disponible';
+      const montoAbs: number = Math.abs(Number(row.Monto ?? 0));
+
+      // Detect if row brings a meaningful classification (not default placeholders)
+      const tipo: string | undefined = row?.Tipo;
+      const categoria1: string | undefined = row?.['Categoria 1'];
+      const subCategoria: string | undefined = row?.['Sub categoria'];
+      const clasificacion: string | undefined = row?.Clasificacion;
+
+      const hasDefinedClassification =
+        !!tipo && tipo !== 'Indefinido' &&
+        !!categoria1 && categoria1 !== 'Sin Categoría' &&
+        !!subCategoria && subCategoria !== 'Sin Subcategoría' &&
+        !!clasificacion && clasificacion !== 'Sin Clasificación';
+
+      const current = acc.get(code);
+
+      // Initialize if not present
+      if (!current) {
+        acc.set(code, {
+          code,
+          name,
+          weight: hasDefinedClassification ? montoAbs : 0,
+          managementCategory: hasDefinedClassification ? categoria1 : undefined,
+          classification: hasDefinedClassification ? tipo : undefined,
+          subClassification: hasDefinedClassification ? subCategoria : undefined,
+          subSubClassification: hasDefinedClassification ? clasificacion : undefined,
+        });
+        return acc;
+      }
+
+      // If we find a stronger (by monto) defined classification, replace
+      if (hasDefinedClassification && montoAbs > (current.weight || 0)) {
+        current.weight = montoAbs;
+        current.managementCategory = categoria1;
+        current.classification = tipo;
+        current.subClassification = subCategoria;
+        current.subSubClassification = clasificacion;
+        acc.set(code, current);
+        return acc;
+      }
+
+      // Otherwise keep the existing (either already defined or still undefined)
       return acc;
-    }, new Map());
+    }, new Map<string, MissingInfo>());
 
   // Add missing classifications to database
-  for (const [code, info] of missingAccounts) {
-    const newClassification = await addMissingClassification(code, info.name);
+  for (const [, info] of missingAccounts) {
+    const newClassification = await addMissingClassification(
+      info.code,
+      info.name,
+      info.classification
+        ? {
+            managementCategory: info.managementCategory,
+            classification: info.classification,
+            subClassification: info.subClassification,
+            subSubClassification: info.subSubClassification,
+          }
+        : {}
+    );
     if (newClassification) {
       newClassifications.push(newClassification);
     }
   }
-  
-  console.log(`Detectadas y agregadas ${newClassifications.length} nuevas clasificaciones:`, 
-    newClassifications.map(c => c.codigo_ingresos));
-  
+
+  console.log(
+    `Detectadas y agregadas ${newClassifications.length} nuevas clasificaciones:`,
+    newClassifications.map(c => c.codigo_ingresos)
+  );
+
   return {
     newClassifications,
-    totalAdded: newClassifications.length
+    totalAdded: newClassifications.length,
   };
 }
 
